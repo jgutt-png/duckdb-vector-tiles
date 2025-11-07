@@ -7,8 +7,9 @@ library(pmtiles)
 library(dplyr)
 library(httpuv)
 
-# Set Census API key
+# Set Census API key and enable caching (optimization from umich workshop)
 census_api_key("50076e92f117dd465e96d431111e6b3005f4a9b4")
+options(tigris_use_cache = TRUE)  # Cache shapefiles for faster subsequent runs
 
 # 1. Fetch ALL US block group population data (state by state)
 cat("Fetching population data for ALL US block groups...\n")
