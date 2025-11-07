@@ -26,7 +26,7 @@ for (state in states) {
       geography = "block group",
       variables = "B01003_001",  # Total population
       state = state,
-      year = 2022,
+      year = 2023,  # Latest available ACS data
       geometry = TRUE
     ) %>%
       select(
