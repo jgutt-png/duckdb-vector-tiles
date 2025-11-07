@@ -65,6 +65,84 @@ tile_app <- list(
       ))
     }
 
+    # Serve map HTML at root
+    if (path == "/") {
+      port <- as.integer(Sys.getenv("PORT", "8080"))
+      host <- Sys.getenv("RAILWAY_PUBLIC_DOMAIN", "localhost")
+      base_url <- if (host == "localhost") {
+        paste0("http://", host, ":", port)
+      } else {
+        paste0("https://", host)
+      }
+
+      map_html <- sprintf('
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DuckDB Vector Tiles Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    const map = new maplibregl.Map({
+      container: "map",
+      style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+      center: [-79.5, 35.5],
+      zoom: 6
+    });
+
+    map.on("load", () => {
+      map.addSource("duckdb-tiles", {
+        type: "vector",
+        tiles: ["%s/tiles/{z}/{x}/{y}.pbf"],
+        minzoom: 0,
+        maxzoom: 14
+      });
+
+      map.addLayer({
+        id: "features-fill",
+        type: "fill",
+        source: "duckdb-tiles",
+        "source-layer": "layer",
+        paint: {
+          "fill-color": "steelblue",
+          "fill-opacity": 0.6
+        }
+      });
+
+      map.addLayer({
+        id: "features-line",
+        type: "line",
+        source: "duckdb-tiles",
+        "source-layer": "layer",
+        paint: {
+          "line-color": "white",
+          "line-width": 1
+        }
+      });
+    });
+  </script>
+</body>
+</html>', base_url)
+
+      return(list(
+        status = 200L,
+        headers = list(
+          'Content-Type' = 'text/html; charset=utf-8',
+          'Access-Control-Allow-Origin' = '*'
+        ),
+        body = map_html
+      ))
+    }
+
     # Parse tile coordinates from URL
     tile_coords <- parse_tile_path(path)
 
@@ -199,17 +277,12 @@ m <- maplibre(
     line_width = 1
   )
 
-# Display the map
-m
+# Keep the server running
+cat("Tile server is running!\n")
+cat("Access the map at the root URL of this deployment\n")
 
-# Cleanup function (run this when done)
-cleanup_tile_server <- function() {
-  if (exists("tile_server_info")) {
-    stopDaemonizedServer(tile_server_info$server)
-    dbDisconnect(tile_server_info$con)
-    cat("Tile server stopped and database disconnected\n")
-  }
+# In a production server, we need to keep the process alive
+# The map will be served at the root URL
+while(TRUE) {
+  Sys.sleep(3600)  # Sleep for 1 hour, keep process alive
 }
-
-# Note: To stop the server and disconnect, run:
-# cleanup_tile_server()
