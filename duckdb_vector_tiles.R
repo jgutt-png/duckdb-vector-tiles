@@ -244,39 +244,6 @@ cat(
   sep = ""
 )
 
-# 5. Create the mapgl map with the DuckDB vector tile source
-m <- maplibre(
-  center = c(-79.5, 35.5),
-  zoom = 6,
-  style = carto_style("positron")
-) |>
-  add_vector_source(
-    id = "duckdb-tiles",
-    tiles = paste0("http://127.0.0.1:", port, "/tiles/{z}/{x}/{y}.pbf"),
-    minzoom = 0,
-    maxzoom = 14,
-    promote_id = "GEOID"
-  ) |>
-  add_fill_layer(
-    id = "features-fill",
-    source = "duckdb-tiles",
-    source_layer = "layer", # ST_AsMVT default layer name
-    fill_color = "steelblue",
-    fill_opacity = 0.6,
-    tooltip = "GEOID",
-    hover_options = list(
-      fill_color = "yellow",
-      fill_opacity = 1
-    )
-  ) |>
-  add_line_layer(
-    id = "features-line",
-    source = "duckdb-tiles",
-    source_layer = "layer",
-    line_color = "white",
-    line_width = 1
-  )
-
 # Keep the server running
 cat("Tile server is running!\n")
 cat("Access the map at the root URL of this deployment\n")
