@@ -9,40 +9,40 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgdal-dev \
     libgeos-dev \
     libproj-dev \
-    cmake \
-    libabsl-dev \
-    xz-utils \
+    wget \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
+
+# Install Go for go-pmtiles
+RUN wget -q https://go.dev/dl/go1.21.5.linux-amd64.tar.gz && \
+    tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz && \
+    rm go1.21.5.linux-amd64.tar.gz
+
+ENV PATH="${PATH}:/usr/local/go/bin:/root/go/bin"
 
 # Use RSPM for pre-built binaries on Ubuntu 24.04 (Noble)
 ENV CRAN=https://packagemanager.posit.co/cran/__linux__/noble/latest
 
 # Layer 1: Minimal dependencies (fastest, most stable)
-RUN R -e "install.packages(c('DBI', 'httpuv'), repos=Sys.getenv('CRAN'))" \
+RUN R -e "install.packages(c('sf', 'dplyr'), repos=Sys.getenv('CRAN'))" \
     && rm -rf /tmp/Rtmp*
 
-# Layer 2: Lightweight packages
-RUN R -e "install.packages(c('tigris', 'mapgl', 'tidycensus', 'dplyr'), repos=Sys.getenv('CRAN'))" \
+# Layer 2: Census and visualization packages
+RUN R -e "install.packages(c('tidycensus', 'mapgl'), repos=Sys.getenv('CRAN'))" \
     && rm -rf /tmp/Rtmp*
 
-# Layer 3: Spatial packages (moderate compilation)
-RUN R -e "install.packages(c('sf', 'duckspatial'), repos=Sys.getenv('CRAN'))" \
-    && rm -rf /tmp/Rtmp*
-
-# Layer 4: duckdb (heaviest - separate layer for caching)
-# Reduce to 4 cores to avoid exhausting Docker resources
-RUN R -e "install.packages('duckdb', repos=Sys.getenv('CRAN'), Ncpus=4)" \
+# Layer 3: PMTiles package (installs go-pmtiles automatically)
+RUN R -e "install.packages('pmtiles', repos=Sys.getenv('CRAN'))" \
     && rm -rf /tmp/Rtmp*
 
 # Set working directory
 WORKDIR /app
 
 # Copy the R script into the container
-COPY duckdb_vector_tiles.R /app/
+COPY pmtiles_server.R /app/
 
-# Expose port range for the tile server
+# Expose port for the tile server
 EXPOSE 8000-8010
 
 # Run the script
-CMD ["Rscript", "duckdb_vector_tiles.R"]
+CMD ["Rscript", "pmtiles_server.R"]
