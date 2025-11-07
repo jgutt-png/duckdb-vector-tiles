@@ -55,9 +55,8 @@ map <- maplibre(
   bearing = -17.6
 ) %>%
   add_pmtiles_source(
-    source_id = "tx_population",
-    url = pmtiles_file,
-    layer = "population"
+    id = "tx_population",
+    url = pmtiles_file
   ) %>%
   add_fill_extrusion_layer(
     id = "population-3d",
