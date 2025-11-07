@@ -4,8 +4,8 @@
 library(tidycensus)
 library(sf)
 library(pmtiles)
-library(mapgl)
 library(dplyr)
+library(httpuv)
 
 # Set Census API key
 census_api_key("50076e92f117dd465e96d431111e6b3005f4a9b4")
@@ -122,8 +122,6 @@ map_html <- sprintf('
 </html>', pmtiles_file)
 
 # 4. Serve using httpuv
-library(httpuv)
-
 app <- list(
   call = function(req) {
     path <- req$PATH_INFO
