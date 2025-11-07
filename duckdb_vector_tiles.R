@@ -250,6 +250,8 @@ cat("Access the map at the root URL of this deployment\n")
 
 # In a production server, we need to keep the process alive
 # The map will be served at the root URL
+# Use httpuv::service() to process incoming requests
 while(TRUE) {
-  Sys.sleep(3600)  # Sleep for 1 hour, keep process alive
+  httpuv::service()  # Process any pending HTTP requests
+  Sys.sleep(0.1)     # Short sleep to avoid busy-waiting
 }
