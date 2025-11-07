@@ -144,36 +144,12 @@ tile_app <- list(
 )
 
 # 4. Start the tile server
-# Find available port (starting from 8000)
-find_available_port <- function(start_port = 8000, max_attempts = 10) {
-  for (i in 0:(max_attempts - 1)) {
-    port <- start_port + i
-    tryCatch(
-      {
-        # Try to start server on this port
-        test_server <- startServer(
-          "127.0.0.1",
-          port,
-          list(call = function(req) {
-            list(status = 200L, body = "test")
-          })
-        )
-        stopServer(test_server)
-        return(port)
-      },
-      error = function(e) {
-        # Port is in use, try next one
-      }
-    )
-  }
-  stop("Could not find available port")
-}
-
-port <- find_available_port()
+# Use PORT environment variable (for Railway/cloud deployment) or default to 8080
+port <- as.integer(Sys.getenv("PORT", "8080"))
 cat("Starting tile server on port", port, "\n")
 
-# Start the server in the background
-server <- startDaemonizedServer("127.0.0.1", port, tile_app)
+# Start the server - bind to 0.0.0.0 for external access
+server <- startDaemonizedServer("0.0.0.0", port, tile_app)
 
 # Store server info for cleanup
 tile_server_info <- list(
