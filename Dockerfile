@@ -39,7 +39,7 @@ RUN R -e "install.packages(c('sf', 'dplyr'), repos=Sys.getenv('CRAN'))" \
     && rm -rf /tmp/Rtmp*
 
 # Layer 2: Census and visualization packages
-RUN R -e "install.packages(c('tidycensus', 'mapgl', 'remotes'), repos=Sys.getenv('CRAN'))" \
+RUN R -e "install.packages(c('tidycensus', 'httpuv', 'remotes'), repos=Sys.getenv('CRAN'))" \
     && rm -rf /tmp/Rtmp*
 
 # Layer 3: PMTiles package from GitHub (installs go-pmtiles automatically)
