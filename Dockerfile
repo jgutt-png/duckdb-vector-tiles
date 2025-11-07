@@ -9,9 +9,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgdal-dev \
     libgeos-dev \
     libproj-dev \
+    libsqlite3-dev \
+    zlib1g-dev \
+    build-essential \
+    git \
     wget \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
+
+# Install tippecanoe from source
+RUN git clone https://github.com/felt/tippecanoe.git /tmp/tippecanoe && \
+    cd /tmp/tippecanoe && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/tippecanoe
 
 # Install Go for go-pmtiles
 RUN wget -q https://go.dev/dl/go1.21.5.linux-amd64.tar.gz && \
