@@ -10,23 +10,45 @@ library(httpuv)
 # Set Census API key
 census_api_key("50076e92f117dd465e96d431111e6b3005f4a9b4")
 
-# 1. Fetch ALL US block group population data
+# 1. Fetch ALL US block group population data (state by state)
 cat("Fetching population data for ALL US block groups...\n")
-cat("This may take 5-10 minutes...\n")
-us_population <- get_acs(
-  geography = "block group",
-  variables = "B01003_001",  # Total population
-  year = 2022,
-  geometry = TRUE
-) %>%
-  select(
-    GEOID,
-    NAME,
-    population = estimate,
-    geometry
-  )
+cat("This will take 5-10 minutes (fetching each state)...\n")
 
-cat("Fetched", nrow(us_population), "block groups\n")
+# List of all US states + DC and PR
+states <- c(state.abb, "DC", "PR")
+
+# Fetch data for each state and combine
+us_population <- NULL
+for (state in states) {
+  cat("Fetching", state, "...\n")
+  tryCatch({
+    state_data <- get_acs(
+      geography = "block group",
+      variables = "B01003_001",  # Total population
+      state = state,
+      year = 2022,
+      geometry = TRUE
+    ) %>%
+      select(
+        GEOID,
+        NAME,
+        population = estimate,
+        geometry
+      )
+
+    if (is.null(us_population)) {
+      us_population <- state_data
+    } else {
+      us_population <- rbind(us_population, state_data)
+    }
+
+    cat("  Fetched", nrow(state_data), "block groups from", state, "\n")
+  }, error = function(e) {
+    cat("  Skipping", state, "- error:", e$message, "\n")
+  })
+}
+
+cat("Total:", nrow(us_population), "block groups fetched\n")
 
 # 2. Create PMTiles directly from sf object
 pmtiles_file <- "us_population.pmtiles"
