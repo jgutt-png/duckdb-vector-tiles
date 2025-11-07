@@ -35,10 +35,9 @@ cat("Creating PMTiles archive...\n")
 pm_create(
   input = tx_population,
   output = pmtiles_file,
-  name = "Texas Population",
-  layer = "population",
-  minzoom = 0,
-  maxzoom = 14
+  layer_name = "population",
+  min_zoom = 0,
+  max_zoom = 14
 )
 
 cat("PMTiles file created:", pmtiles_file, "\n")
