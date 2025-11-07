@@ -23,7 +23,7 @@ RUN R -e "install.packages(c('DBI', 'httpuv'), repos=Sys.getenv('CRAN'))" \
     && rm -rf /tmp/Rtmp*
 
 # Layer 2: Lightweight packages
-RUN R -e "install.packages(c('tigris', 'mapgl'), repos=Sys.getenv('CRAN'))" \
+RUN R -e "install.packages(c('tigris', 'mapgl', 'tidycensus', 'dplyr'), repos=Sys.getenv('CRAN'))" \
     && rm -rf /tmp/Rtmp*
 
 # Layer 3: Spatial packages (moderate compilation)

@@ -8,16 +8,31 @@ library(httpuv)
 library(sf)
 library(duckspatial)
 library(tigris)
+library(tidycensus)
+library(dplyr)
 
 # 1. Setup DuckDB connection and load spatial extension
 con <- dbConnect(duckdb::duckdb(), dbdir = "tiles.duckdb")
 ddbs_install(con)
 ddbs_load(con)
 
-# 2. Load your spatial data into DuckDB
-# Example: Load an sf object into DuckDB and transform to Web Mercator (EPSG:3857)
-# All US block groups: 242,000 polygons
-data <- block_groups(cb = TRUE)
+# 2. Load spatial data with demographic attributes
+# Get population data for Texas block groups (as example)
+cat("Fetching population data for Texas block groups...\n")
+data <- get_acs(
+  geography = "block group",
+  variables = "B01003_001",  # Total population
+  state = "TX",
+  year = 2022,
+  geometry = TRUE
+) %>%
+  select(
+    GEOID,
+    NAME,
+    population = estimate,
+    population_moe = moe,
+    geometry
+  )
 
 # Transform to Web Mercator for tiling
 data_mercator <- st_transform(data, 3857)
@@ -95,8 +110,10 @@ tile_app <- list(
     const map = new maplibregl.Map({
       container: "map",
       style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-      center: [-79.5, 35.5],
-      zoom: 6
+      center: [-99.9, 31.5],  // Texas center
+      zoom: 6,
+      pitch: 60,
+      bearing: -17.6
     });
 
     map.on("load", () => {
@@ -108,26 +125,38 @@ tile_app <- list(
       });
 
       map.addLayer({
-        id: "features-fill",
-        type: "fill",
+        id: "features-3d",
+        type: "fill-extrusion",
         source: "duckdb-tiles",
         "source-layer": "layer",
         paint: {
-          "fill-color": "steelblue",
-          "fill-opacity": 0.6
+          "fill-extrusion-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "population"],
+            0, "#f7fbff",
+            500, "#deebf7",
+            1000, "#c6dbef",
+            2000, "#9ecae1",
+            3000, "#6baed6",
+            4000, "#4292c6",
+            5000, "#2171b5",
+            7000, "#08519c",
+            10000, "#08306b"
+          ],
+          "fill-extrusion-height": [
+            "interpolate",
+            ["linear"],
+            ["get", "population"],
+            0, 0,
+            10000, 50000
+          ],
+          "fill-extrusion-opacity": 0.9
         }
       });
 
-      map.addLayer({
-        id: "features-line",
-        type: "line",
-        source: "duckdb-tiles",
-        "source-layer": "layer",
-        paint: {
-          "line-color": "white",
-          "line-width": 1
-        }
-      });
+      // Add navigation controls
+      map.addControl(new maplibregl.NavigationControl(), "top-right");
     });
   </script>
 </body>
@@ -154,6 +183,8 @@ tile_app <- list(
           SELECT
             GEOID,
             NAME,
+            population,
+            population_moe,
             ST_AsMVTGeom(
               geometry,
               (SELECT ST_Extent(ST_TileEnvelope(?, ?, ?)))
