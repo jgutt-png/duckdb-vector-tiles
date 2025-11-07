@@ -15,8 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Use RSPM for pre-built binaries on Ubuntu 22.04 (Jammy)
-ENV CRAN=https://packagemanager.posit.co/cran/__linux__/jammy/latest
+# Use RSPM for pre-built binaries on Ubuntu 24.04 (Noble)
+ENV CRAN=https://packagemanager.posit.co/cran/__linux__/noble/latest
 
 # Layer 1: Minimal dependencies (fastest, most stable)
 RUN R -e "install.packages(c('DBI', 'httpuv'), repos=Sys.getenv('CRAN'))" \
