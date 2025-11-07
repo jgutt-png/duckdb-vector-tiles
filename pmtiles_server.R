@@ -7,6 +7,9 @@ library(pmtiles)
 library(mapgl)
 library(dplyr)
 
+# Set Census API key
+census_api_key("50076e92f117dd465e96d431111e6b3005f4a9b4")
+
 # 1. Fetch Texas block group population data
 cat("Fetching population data for Texas block groups...\n")
 tx_population <- get_acs(
@@ -25,24 +28,17 @@ tx_population <- get_acs(
 
 cat("Fetched", nrow(tx_population), "block groups\n")
 
-# 2. Write to GeoJSON (tippecanoe input format)
-geojson_file <- "tx_population.geojson"
-cat("Writing GeoJSON file...\n")
-st_write(tx_population, geojson_file, delete_dsn = TRUE, quiet = TRUE)
-
-# 3. Convert to PMTiles using tippecanoe
+# 2. Create PMTiles directly from sf object
 pmtiles_file <- "tx_population.pmtiles"
 cat("Creating PMTiles archive...\n")
 
-pm_tiles(
-  input = geojson_file,
+pm_create(
+  input = tx_population,
   output = pmtiles_file,
   name = "Texas Population",
   layer = "population",
   minzoom = 0,
-  maxzoom = 14,
-  drop_densest_as_needed = TRUE,
-  extend_zooms_if_still_dropping = TRUE
+  maxzoom = 14
 )
 
 cat("PMTiles file created:", pmtiles_file, "\n")
