@@ -28,11 +28,11 @@ RUN R -e "install.packages(c('sf', 'dplyr'), repos=Sys.getenv('CRAN'))" \
     && rm -rf /tmp/Rtmp*
 
 # Layer 2: Census and visualization packages
-RUN R -e "install.packages(c('tidycensus', 'mapgl'), repos=Sys.getenv('CRAN'))" \
+RUN R -e "install.packages(c('tidycensus', 'mapgl', 'remotes'), repos=Sys.getenv('CRAN'))" \
     && rm -rf /tmp/Rtmp*
 
-# Layer 3: PMTiles package (installs go-pmtiles automatically)
-RUN R -e "install.packages('pmtiles', repos=Sys.getenv('CRAN'))" \
+# Layer 3: PMTiles package from GitHub (installs go-pmtiles automatically)
+RUN R -e "remotes::install_github('walkerke/pmtiles')" \
     && rm -rf /tmp/Rtmp*
 
 # Set working directory
