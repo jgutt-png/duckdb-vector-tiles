@@ -161,17 +161,55 @@ app <- list(
     }
 
     # Serve PMTiles file
-    if (grepl("\\\\.pmtiles$", path)) {
-      file_path <- paste0(".", path)
-      if (file.exists(file_path)) {
+    if (path == paste0("/", pmtiles_file)) {
+      if (file.exists(pmtiles_file)) {
+        file_size <- file.info(pmtiles_file)$size
+
+        # Support HTTP Range requests for PMTiles
+        range_header <- req$HTTP_RANGE
+
+        if (!is.null(range_header) && grepl("^bytes=", range_header)) {
+          # Parse Range: bytes=start-end
+          range_parts <- sub("^bytes=", "", range_header)
+          parts <- strsplit(range_parts, "-")[[1]]
+          start <- as.numeric(parts[1])
+          end <- if (parts[2] == "") file_size - 1 else as.numeric(parts[2])
+          length <- end - start + 1
+
+          # Read byte range
+          con <- file(pmtiles_file, "rb")
+          seek(con, start)
+          data <- readBin(con, "raw", length)
+          close(con)
+
+          return(list(
+            status = 206L,
+            headers = list(
+              "Content-Type" = "application/x-protobuf",
+              "Content-Range" = sprintf("bytes %d-%d/%d", start, end, file_size),
+              "Content-Length" = as.character(length),
+              "Accept-Ranges" = "bytes",
+              "Access-Control-Allow-Origin" = "*"
+            ),
+            body = data
+          ))
+        }
+
+        # Serve full file
         return(list(
           status = 200L,
           headers = list(
             "Content-Type" = "application/x-protobuf",
+            "Content-Length" = as.character(file_size),
+            "Accept-Ranges" = "bytes",
             "Access-Control-Allow-Origin" = "*"
           ),
-          body = readBin(file_path, "raw", file.info(file_path)$size)
+          body = readBin(pmtiles_file, "raw", file_size)
         ))
+      } else {
+        cat("ERROR: PMTiles file not found:", pmtiles_file, "\n")
+        cat("Working directory:", getwd(), "\n")
+        cat("Files in directory:", paste(list.files(), collapse=", "), "\n")
       }
     }
 
