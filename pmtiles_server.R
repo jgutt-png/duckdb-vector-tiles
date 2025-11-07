@@ -24,15 +24,20 @@ for (state in states) {
   tryCatch({
     state_data <- get_acs(
       geography = "block group",
-      variables = "B01003_001",  # Total population
+      variables = c(
+        population = "B01003_001",  # Total population
+        income = "B19013_001"       # Median household income
+      ),
       state = state,
       year = 2023,  # Latest available ACS data
-      geometry = TRUE
+      geometry = TRUE,
+      output = "wide"
     ) %>%
       select(
         GEOID,
         NAME,
-        population = estimate,
+        population = populationE,
+        income = incomeE,
         geometry
       )
 
@@ -82,9 +87,38 @@ map_html <- sprintf('
   <style>
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%%; }
+    #controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      z-index: 1;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button.active {
+      background: #2171b5;
+      color: white;
+    }
+    button:not(.active) {
+      background: #f0f0f0;
+    }
   </style>
 </head>
 <body>
+  <div id="controls">
+    <button id="btn-population" class="active" onclick="showLayer('population')">Population</button>
+    <button id="btn-income" onclick="showLayer('income')">Income</button>
+  </div>
   <div id="map"></div>
   <script>
     let protocol = new pmtiles.Protocol();
@@ -106,6 +140,7 @@ map_html <- sprintf('
         attribution: "US Census Bureau"
       });
 
+      // Population layer (blue)
       map.addLayer({
         id: "population-3d",
         type: "fill-extrusion",
@@ -137,8 +172,58 @@ map_html <- sprintf('
         }
       });
 
+      // Income layer (green/yellow - hidden by default)
+      map.addLayer({
+        id: "income-3d",
+        type: "fill-extrusion",
+        source: "population",
+        "source-layer": "population",
+        layout: {
+          "visibility": "none"
+        },
+        paint: {
+          "fill-extrusion-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "income"],
+            0, "#ffffe5",
+            30000, "#f7fcb9",
+            50000, "#d9f0a3",
+            70000, "#addd8e",
+            90000, "#78c679",
+            110000, "#41ab5d",
+            130000, "#238443",
+            150000, "#006837",
+            200000, "#004529"
+          ],
+          "fill-extrusion-height": [
+            "interpolate",
+            ["linear"],
+            ["get", "income"],
+            0, 0,
+            200000, 100000
+          ],
+          "fill-extrusion-opacity": 0.9
+        }
+      });
+
       map.addControl(new maplibregl.NavigationControl(), "top-right");
     });
+
+    // Toggle between population and income layers
+    function showLayer(layerType) {
+      if (layerType === 'population') {
+        map.setLayoutProperty('population-3d', 'visibility', 'visible');
+        map.setLayoutProperty('income-3d', 'visibility', 'none');
+        document.getElementById('btn-population').classList.add('active');
+        document.getElementById('btn-income').classList.remove('active');
+      } else if (layerType === 'income') {
+        map.setLayoutProperty('population-3d', 'visibility', 'none');
+        map.setLayoutProperty('income-3d', 'visibility', 'visible');
+        document.getElementById('btn-population').classList.remove('active');
+        document.getElementById('btn-income').classList.add('active');
+      }
+    }
   </script>
 </body>
 </html>', pmtiles_file)
