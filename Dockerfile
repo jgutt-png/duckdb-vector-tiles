@@ -38,6 +38,9 @@ RUN R -e "install.packages('duckdb', repos=Sys.getenv('CRAN'), Ncpus=4)" \
 # Set working directory
 WORKDIR /app
 
+# Copy the R script into the container
+COPY duckdb_vector_tiles.R /app/
+
 # Expose port range for the tile server
 EXPOSE 8000-8010
 
