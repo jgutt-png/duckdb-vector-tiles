@@ -1,0 +1,8 @@
+*.log
+*.duckdb
+*.duckdb.wal
+/tmp/
+.Rhistory
+.RData
+.DS_Store
+tiles.duckdb*
