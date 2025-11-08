@@ -434,7 +434,7 @@ map_html <- sprintf('
           // Add a temporary marker
           new maplibregl.Popup({ closeOnClick: true })
             .setLngLat([lon, lat])
-            .setHTML("<div style=\\"font-weight: bold;\\">" + result.display_name + "</div>")
+            .setHTML("<div style=\\\\"font-weight: bold;\\\\">" + result.display_name + "</div>")
             .addTo(map);
         } else {
           alert("Address not found. Please try a different search.");
