@@ -317,7 +317,7 @@ map_html <- sprintf('
       const popup = new maplibregl.Popup({
         closeButton: false,
         closeOnClick: false,
-        anchor: 'bottom'
+        anchor: "bottom"
       });
 
       map.on("mousemove", "population-3d", (e) => {
