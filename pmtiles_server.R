@@ -91,6 +91,7 @@ map_html <- '
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
   <script src="https://unpkg.com/pmtiles@2.11.0/dist/index.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
   <style>
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
@@ -154,17 +155,15 @@ map_html <- '
       font-weight: bold;
       color: #333;
     }
-    #search-container {
-      margin-top: 10px;
-      display: flex;
-      gap: 5px;
-    }
     #address-search {
-      padding: 8px;
+      padding: 8px 12px;
       border: 1px solid #ccc;
       border-radius: 4px;
       font-size: 14px;
       width: 200px;
+      margin-left: 5px;
+      height: 34px;
+      box-sizing: border-box;
     }
     #search-btn {
       padding: 8px 12px;
@@ -174,9 +173,56 @@ map_html <- '
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
+      height: 34px;
+      box-sizing: border-box;
     }
     #search-btn:hover {
       background: #1a5a8f;
+    }
+    #stats-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: white;
+      padding: 15px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      z-index: 10;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      max-width: 300px;
+      display: none;
+    }
+    #stats-panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+      border-bottom: 2px solid #2171b5;
+      padding-bottom: 5px;
+    }
+    #stats-panel .stat-row {
+      margin: 8px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+    #stats-panel .stat-label {
+      font-weight: bold;
+      color: #555;
+    }
+    #stats-panel .stat-value {
+      color: #2171b5;
+      font-weight: bold;
+    }
+    #stats-panel .close-btn {
+      position: absolute;
+      top: 5px;
+      right: 8px;
+      cursor: pointer;
+      font-size: 20px;
+      color: #999;
+      line-height: 1;
+    }
+    #stats-panel .close-btn:hover {
+      color: #333;
     }
   </style>
 </head>
@@ -185,17 +231,14 @@ map_html <- '
     <div>
       <button id="btn-population" class="active" onclick="showLayer(\'population\')">Population</button>
       <button id="btn-income" onclick="showLayer(\'income\')">Income</button>
+      <input type="text" id="address-search" placeholder="Search address..." />
+      <button id="search-btn" onclick="searchAddress()">Go</button>
     </div>
     <div style="margin-top: 10px;">
       <button id="btn-3d" class="active" onclick="toggle3D(true)">3D</button>
       <button id="btn-2d" onclick="toggle3D(false)">2D</button>
-    </div>
-    <div style="margin-top: 10px;">
       <button id="btn-city-lines" onclick="toggleCityLines()">Roads</button>
-    </div>
-    <div id="search-container">
-      <input type="text" id="address-search" placeholder="Search address..." />
-      <button id="search-btn" onclick="searchAddress()">Go</button>
+      <button id="btn-pin" onclick="togglePinMode()">Pin</button>
     </div>
   </div>
   <div id="legend">
@@ -223,6 +266,28 @@ map_html <- '
       <div class="legend-item"><div class="legend-color" style="background: #ffffe5;"></div><span>$0</span></div>
     </div>
   </div>
+  <div id="stats-panel">
+    <span class="close-btn" onclick="closeStatsPanel()">&times;</span>
+    <h3>3-Mile Radius Stats</h3>
+    <div id="stats-content">
+      <div class="stat-row">
+        <span class="stat-label">Total Population:</span>
+        <span class="stat-value" id="stat-population">-</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Avg Income:</span>
+        <span class="stat-value" id="stat-income">-</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Block Groups:</span>
+        <span class="stat-value" id="stat-blocks">-</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Area:</span>
+        <span class="stat-value">3 mile radius</span>
+      </div>
+    </div>
+  </div>
   <div id="map"></div>
   <script>
     let protocol = new pmtiles.Protocol();
@@ -230,6 +295,8 @@ map_html <- '
 
     // Track current layer for tooltips (global scope)
     let currentLayer = "population";
+    let currentMarker = null;
+    let pinModeActive = false;
 
     const map = new maplibregl.Map({
       container: "map",
@@ -434,6 +501,329 @@ map_html <- '
           }
         }
       });
+
+      // Add sources for pin visualization
+      map.addSource(\'pin-circle\', {
+        type: \'geojson\',
+        data: {
+          type: \'Feature\',
+          geometry: {
+            type: \'Point\',
+            coordinates: [0, 0]
+          }
+        }
+      });
+
+      map.addSource(\'pin-3d\', {
+        type: \'geojson\',
+        data: {
+          type: \'Feature\',
+          geometry: {
+            type: \'Point\',
+            coordinates: [0, 0]
+          }
+        }
+      });
+
+      // Add 3-mile radius circle layer (line for outline)
+      map.addLayer({
+        id: \'radius-circle-line\',
+        type: \'line\',
+        source: \'pin-circle\',
+        paint: {
+          \'line-color\': \'#FF3333\',
+          \'line-width\': 5,
+          \'line-opacity\': 1
+        },
+        layout: {
+          \'visibility\': \'none\'
+        }
+      });
+
+      // Add 3D elevated radius circle (fill-extrusion for 3D effect)
+      map.addLayer({
+        id: \'radius-circle-3d\',
+        type: \'fill-extrusion\',
+        source: \'pin-circle\',
+        paint: {
+          \'fill-extrusion-color\': \'#FF3333\',
+          \'fill-extrusion-height\': 70000,
+          \'fill-extrusion-base\': 0,
+          \'fill-extrusion-opacity\': 0.4
+        },
+        layout: {
+          \'visibility\': \'none\'
+        }
+      });
+
+      // Add 3D pin marker (tall spike)
+      map.addLayer({
+        id: \'pin-3d-marker\',
+        type: \'fill-extrusion\',
+        source: \'pin-3d\',
+        paint: {
+          \'fill-extrusion-color\': [
+            \'interpolate\',
+            [\'linear\'],
+            [\'get-height\'],
+            0, \'#FF0000\',
+            50000, \'#FF6666\',
+            100000, \'#FF0000\'
+          ],
+          \'fill-extrusion-height\': 100000,
+          \'fill-extrusion-base\': 0,
+          \'fill-extrusion-opacity\': 0.95
+        },
+        layout: {
+          \'visibility\': \'none\'
+        }
+      });
+
+      // Add click handler for dropping pin and calculating stats
+      map.on(\'click\', (e) => {
+        // Only drop pin if pin mode is active
+        if (!pinModeActive) return;
+
+        // Don\'t add pin if clicking on controls
+        if (e.originalEvent.target.closest(\'#controls\') ||
+            e.originalEvent.target.closest(\'#legend\') ||
+            e.originalEvent.target.closest(\'#stats-panel\')) {
+          return;
+        }
+
+        // Remove existing marker if any
+        if (currentMarker) {
+          currentMarker.remove();
+        }
+
+        // Add new marker at clicked location - only show in 2D mode (when pitch is 0)
+        const pitch = map.getPitch();
+        if (pitch < 30) {
+          currentMarker = new maplibregl.Marker({ color: \'#FF0000\' })
+            .setLngLat(e.lngLat)
+            .addTo(map);
+        }
+
+        // Calculate stats for 3-mile radius and get dynamic height
+        const radiusHeight = calculateRadiusStats(e.lngLat);
+
+        // Create and display 3-mile radius circle
+        const radiusMiles = 3;
+        const radiusKm = radiusMiles * 1.60934;
+        const centerPoint = turf.point([e.lngLat.lng, e.lngLat.lat]);
+        const circle = turf.circle(centerPoint, radiusKm, { units: \'kilometers\', steps: 64 });
+
+        // Update circle source and show both line and 3D versions
+        map.getSource(\'pin-circle\').setData(circle);
+        map.setLayoutProperty(\'radius-circle-line\', \'visibility\', \'visible\');
+
+        // Set dynamic height for 3D radius cylinder
+        map.setPaintProperty(\'radius-circle-3d\', \'fill-extrusion-height\', radiusHeight);
+        map.setLayoutProperty(\'radius-circle-3d\', \'visibility\', \'visible\');
+
+        // Create 3D pin (small buffered point for tall spike) - make it taller than radius
+        const pin3D = turf.buffer(centerPoint, 0.03, { units: \'kilometers\' });
+        map.getSource(\'pin-3d\').setData(pin3D);
+        map.setPaintProperty(\'pin-3d-marker\', \'fill-extrusion-height\', radiusHeight * 1.5);
+        map.setLayoutProperty(\'pin-3d-marker\', \'visibility\', \'visible\');
+      });
+    });
+
+    // Calculate statistics within 3-mile radius
+    function calculateRadiusStats(center) {
+      const radiusMiles = 3;
+      const radiusKm = radiusMiles * 1.60934;
+
+      // Create circle using turf
+      const centerPoint = turf.point([center.lng, center.lat]);
+      const circle = turf.circle(centerPoint, radiusKm, { units: \'kilometers\' });
+
+      // Query features directly from source (not just rendered features)
+      // This ensures we get all features regardless of zoom level or visibility
+      const bbox = turf.bbox(circle);
+      const features = map.querySourceFeatures(\'population\', {
+        sourceLayer: \'population\',
+        filter: [
+          \'all\',
+          [\'>=\', [\'get\', \'population\'], 0]
+        ]
+      });
+
+      // Filter features within circle and aggregate stats
+      let totalPopulation = 0;
+      let totalIncome = 0;
+      let blockCount = 0;
+      let maxPopulation = 0;
+      let maxIncome = 0;
+      const seenIds = new Set();
+
+      features.forEach(feature => {
+        // Avoid counting same feature twice
+        const featureId = feature.properties.GEOID || feature.id;
+        if (seenIds.has(featureId)) return;
+        seenIds.add(featureId);
+
+        // Check if feature intersects or is within circle
+        // Use turf.booleanIntersects for more accurate detection
+        try {
+          const featureGeom = feature.geometry || feature;
+          const intersects = turf.booleanIntersects(circle, featureGeom);
+
+          if (intersects) {
+            const pop = parseInt(feature.properties.population) || 0;
+            const inc = parseInt(feature.properties.income) || 0;
+
+            totalPopulation += pop;
+            if (inc > 0) {
+              totalIncome += inc;
+            }
+
+            // Track max values for height calculation
+            if (pop > maxPopulation) maxPopulation = pop;
+            if (inc > maxIncome) maxIncome = inc;
+
+            blockCount++;
+          }
+        } catch (e) {
+          // If intersection check fails, fall back to center distance check
+          const featureCenter = turf.center(feature);
+          const distance = turf.distance(centerPoint, featureCenter, { units: \'kilometers\' });
+
+          if (distance <= radiusKm) {
+            const pop = parseInt(feature.properties.population) || 0;
+            const inc = parseInt(feature.properties.income) || 0;
+
+            totalPopulation += pop;
+            if (inc > 0) {
+              totalIncome += inc;
+            }
+
+            if (pop > maxPopulation) maxPopulation = pop;
+            if (inc > maxIncome) maxIncome = inc;
+
+            blockCount++;
+          }
+        }
+      });
+
+      // Calculate average income
+      const avgIncome = blockCount > 0 ? Math.round(totalIncome / blockCount) : 0;
+
+      // Calculate max height based on current layer
+      // Population layer: 0-10000 pop -> 0-50000 height
+      // Income layer: 0-200000 income -> 0-100000 height
+      let maxHeight = 0;
+      if (currentLayer === \'population\') {
+        maxHeight = Math.min(maxPopulation / 10000 * 50000, 50000);
+      } else {
+        maxHeight = Math.min(maxIncome / 200000 * 100000, 100000);
+      }
+
+      // Make radius cylinder 20% taller than max block + minimum 5000m
+      const radiusHeight = Math.max(maxHeight * 1.2, 5000);
+
+      // Update stats panel
+      document.getElementById(\'stat-population\').textContent = totalPopulation.toLocaleString();
+      document.getElementById(\'stat-income\').textContent = avgIncome > 0 ? \'$\' + avgIncome.toLocaleString() : \'N/A\';
+      document.getElementById(\'stat-blocks\').textContent = blockCount.toLocaleString();
+
+      // Show stats panel
+      document.getElementById(\'stats-panel\').style.display = \'block\';
+
+      // Return the calculated radius height
+      return radiusHeight;
+    }
+
+    // Close stats panel
+    function closeStatsPanel() {
+      document.getElementById(\'stats-panel\').style.display = \'none\';
+      if (currentMarker) {
+        currentMarker.remove();
+        currentMarker = null;
+      }
+      // Hide all pin visualization layers
+      map.setLayoutProperty(\'radius-circle-line\', \'visibility\', \'none\');
+      map.setLayoutProperty(\'radius-circle-3d\', \'visibility\', \'none\');
+      map.setLayoutProperty(\'pin-3d-marker\', \'visibility\', \'none\');
+    }
+
+    // Toggle pin mode
+    function togglePinMode() {
+      pinModeActive = !pinModeActive;
+
+      if (pinModeActive) {
+        document.getElementById("btn-pin").classList.add("active");
+        map.getCanvas().style.cursor = \'crosshair\';
+      } else {
+        document.getElementById("btn-pin").classList.remove("active");
+        map.getCanvas().style.cursor = \'\';
+        // Close stats panel and remove pin when deactivating
+        closeStatsPanel();
+      }
+    }
+
+    // Add keyboard controls (WASD for panning, Q/E for rotation)
+    // Camera-relative movement with smooth animation
+    document.addEventListener(\'keydown\', (e) => {
+      // Don\'t trigger if user is typing in search box
+      if (e.target.tagName === \'INPUT\') return;
+
+      const panAmount = 0.08; // degrees - amount to move per keypress
+      const rotateAmount = 15; // degrees
+      const center = map.getCenter();
+      const bearing = map.getBearing();
+
+      // Convert bearing to radians for trigonometry (bearing is clockwise from north)
+      const bearingRad = (bearing * Math.PI) / 180;
+
+      let deltaLng = 0;
+      let deltaLat = 0;
+
+      switch(e.key.toLowerCase()) {
+        case \'w\':
+          // Move forward in the direction camera is facing
+          deltaLng = Math.sin(bearingRad) * panAmount;
+          deltaLat = Math.cos(bearingRad) * panAmount;
+          e.preventDefault();
+          break;
+        case \'s\':
+          // Move backward (opposite of camera direction)
+          deltaLng = -Math.sin(bearingRad) * panAmount;
+          deltaLat = -Math.cos(bearingRad) * panAmount;
+          e.preventDefault();
+          break;
+        case \'a\':
+          // Move left (perpendicular to camera direction)
+          deltaLng = -Math.cos(bearingRad) * panAmount;
+          deltaLat = Math.sin(bearingRad) * panAmount;
+          e.preventDefault();
+          break;
+        case \'d\':
+          // Move right (perpendicular to camera direction)
+          deltaLng = Math.cos(bearingRad) * panAmount;
+          deltaLat = -Math.sin(bearingRad) * panAmount;
+          e.preventDefault();
+          break;
+        case \'q\':
+          // Rotate left
+          map.easeTo({ bearing: bearing - rotateAmount, duration: 200 });
+          e.preventDefault();
+          break;
+        case \'e\':
+          // Rotate right
+          map.easeTo({ bearing: bearing + rotateAmount, duration: 200 });
+          e.preventDefault();
+          break;
+      }
+
+      // Apply smooth camera-relative movement
+      if (deltaLng !== 0 || deltaLat !== 0) {
+        map.easeTo({
+          center: [center.lng + deltaLng, center.lat + deltaLat],
+          duration: 150,
+          easing: (t) => t // linear easing for responsive feel
+        });
+      }
     });
 
     // Toggle between population and income layers
