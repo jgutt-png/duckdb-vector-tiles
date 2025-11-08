@@ -197,6 +197,9 @@ map_html <- sprintf('
     let protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
+    // Track current layer for tooltips (global scope)
+    let currentLayer = "population";
+
     const map = new maplibregl.Map({
       container: "map",
       style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
@@ -287,9 +290,6 @@ map_html <- sprintf('
         closeButton: false,
         closeOnClick: false
       });
-
-      // Track current layer for tooltips
-      let currentLayer = "population";
 
       map.on("mousemove", "population-3d", (e) => {
         if (currentLayer !== "population") return;
