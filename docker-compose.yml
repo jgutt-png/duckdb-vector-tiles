@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+    volumes:
+      # Mount current directory for live code changes
+      - ./pmtiles_server.R:/app/pmtiles_server.R
+      # Persistent volume for PMTiles cache (survives container restarts)
+      - pmtiles-data:/app
+    restart: unless-stopped
+
+volumes:
+  pmtiles-data:

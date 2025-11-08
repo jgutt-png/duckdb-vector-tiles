@@ -1,31 +1,50 @@
-# DuckDB Vector Tiles Demo
+# US Census Population & Income 3D Visualization
 
-Interactive map displaying US Census block groups (242,000 polygons) using DuckDB's spatial functions and vector tiles.
+Interactive 3D map showing US Census data (242k block groups) with population and median income visualizations using PMTiles.
 
 ## Features
 
-- DuckDB 1.4+ with ST_AsMVT() for vector tile generation
-- httpuv tile server serving tiles at runtime
-- MapLibre/mapgl for interactive visualization
-- All 242,000 US Census block groups
+- **3D/2D Toggle**: Switch between 3D extrusion and flat 2D views
+- **Dual Layers**: Toggle between Population (blue) and Income (green/yellow) visualizations
+- **Hover Tooltips**: See actual numbers and location names on hover
+- **Address Search**: Search any US address and fly to location
+- **Color-Coded Legend**: Visual scale for data values
+- **Persistent Caching**: 603 MB PMTiles file cached to avoid re-downloading Census data
 
-## Quick Start
+## Local Development (Fast!)
 
-### Docker (Recommended)
-
-```bash
-docker pull YOUR_USERNAME/duckdb-tiles:latest
-docker run -p 8000:8000 YOUR_USERNAME/duckdb-tiles:latest
-```
-
-Then open your browser and the map will be served.
-
-### Local Build
+### First Time Setup
 
 ```bash
-docker build -t duckdb-tiles .
-docker run -p 8000:8000 duckdb-tiles
+# Build the Docker image (takes ~5 min)
+docker-compose build
+
+# Start the server
+docker-compose up
 ```
+
+Visit **http://localhost:8080**
+
+**First run will take 10-15 minutes** to download Census data for all 50 states + DC + PR.
+**Subsequent runs start instantly** thanks to persistent volume caching!
+
+### Quick Development Workflow
+
+```bash
+# Start server in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Make changes to pmtiles_server.R, then restart:
+docker-compose restart
+
+# Stop server
+docker-compose down
+```
+
+**Note**: Code changes require container restart to take effect!
 
 ## Cloud Deployment
 
