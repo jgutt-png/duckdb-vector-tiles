@@ -81,7 +81,7 @@ if (file.exists(pmtiles_file)) {
 port <- as.integer(Sys.getenv("PORT", "8080"))
 cat("Creating map visualization...\n")
 
-map_html <- sprintf('
+map_html <- '
 <!DOCTYPE html>
 <html>
 <head>
@@ -93,7 +93,7 @@ map_html <- sprintf('
   <script src="https://unpkg.com/pmtiles@2.11.0/dist/index.js"></script>
   <style>
     body { margin: 0; padding: 0; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%%; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
     #controls {
       position: absolute;
       top: 10px;
@@ -183,12 +183,15 @@ map_html <- sprintf('
 <body>
   <div id="controls">
     <div>
-      <button id="btn-population" class="active" onclick="showLayer(\\"population\\")">Population</button>
-      <button id="btn-income" onclick="showLayer(\\"income\\")">Income</button>
+      <button id="btn-population" class="active" onclick="showLayer(\'population\')">Population</button>
+      <button id="btn-income" onclick="showLayer(\'income\')">Income</button>
     </div>
     <div style="margin-top: 10px;">
       <button id="btn-3d" class="active" onclick="toggle3D(true)">3D</button>
       <button id="btn-2d" onclick="toggle3D(false)">2D</button>
+    </div>
+    <div style="margin-top: 10px;">
+      <button id="btn-city-lines" onclick="toggleCityLines()">Roads</button>
     </div>
     <div id="search-container">
       <input type="text" id="address-search" placeholder="Search address..." />
@@ -244,6 +247,16 @@ map_html <- sprintf('
         attribution: "US Census Bureau"
       });
 
+      // Find the first symbol layer (for labels) to insert our layers before it
+      const layers = map.getStyle().layers;
+      let firstSymbolId;
+      for (const layer of layers) {
+        if (layer.type === \'symbol\') {
+          firstSymbolId = layer.id;
+          break;
+        }
+      }
+
       // Population layer (blue)
       map.addLayer({
         id: "population-3d",
@@ -252,18 +265,23 @@ map_html <- sprintf('
         "source-layer": "population",
         paint: {
           "fill-extrusion-color": [
-            "interpolate",
-            ["linear"],
-            ["get", "population"],
-            0, "#f7fbff",
-            500, "#deebf7",
-            1000, "#c6dbef",
-            2000, "#9ecae1",
-            3000, "#6baed6",
-            4000, "#4292c6",
-            5000, "#2171b5",
-            7000, "#08519c",
-            10000, "#08306b"
+            "case",
+            ["boolean", ["feature-state", "hover"], false],
+            "#ffff00",  // Yellow highlight when hovering
+            [
+              "interpolate",
+              ["linear"],
+              ["get", "population"],
+              0, "#f7fbff",
+              500, "#deebf7",
+              1000, "#c6dbef",
+              2000, "#9ecae1",
+              3000, "#6baed6",
+              4000, "#4292c6",
+              5000, "#2171b5",
+              7000, "#08519c",
+              10000, "#08306b"
+            ]
           ],
           "fill-extrusion-height": [
             "interpolate",
@@ -274,7 +292,7 @@ map_html <- sprintf('
           ],
           "fill-extrusion-opacity": 0.9
         }
-      });
+      }, firstSymbolId);
 
       // Income layer (green/yellow - hidden by default)
       map.addLayer({
@@ -287,18 +305,23 @@ map_html <- sprintf('
         },
         paint: {
           "fill-extrusion-color": [
-            "interpolate",
-            ["linear"],
-            ["get", "income"],
-            0, "#ffffe5",
-            30000, "#f7fcb9",
-            50000, "#d9f0a3",
-            70000, "#addd8e",
-            90000, "#78c679",
-            110000, "#41ab5d",
-            130000, "#238443",
-            150000, "#006837",
-            200000, "#004529"
+            "case",
+            ["boolean", ["feature-state", "hover"], false],
+            "#ffff00",  // Yellow highlight when hovering
+            [
+              "interpolate",
+              ["linear"],
+              ["get", "income"],
+              0, "#ffffe5",
+              30000, "#f7fcb9",
+              50000, "#d9f0a3",
+              70000, "#addd8e",
+              90000, "#78c679",
+              110000, "#41ab5d",
+              130000, "#238443",
+              150000, "#006837",
+              200000, "#004529"
+            ]
           ],
           "fill-extrusion-height": [
             "interpolate",
@@ -309,27 +332,43 @@ map_html <- sprintf('
           ],
           "fill-extrusion-opacity": 0.9
         }
-      });
+      }, firstSymbolId);
 
       map.addControl(new maplibregl.NavigationControl(), "top-right");
 
-      // Add hover tooltip
+      // Add hover tooltip and highlight effect
       const popup = new maplibregl.Popup({
         closeButton: false,
         closeOnClick: false,
         anchor: "bottom"
       });
 
+      let hoveredStateId = null;
+
       map.on("mousemove", "population-3d", (e) => {
         if (currentLayer !== "population") return;
         map.getCanvas().style.cursor = "pointer";
+
+        if (e.features.length > 0) {
+          if (hoveredStateId !== null) {
+            map.setFeatureState(
+              { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+              { hover: false }
+            );
+          }
+          hoveredStateId = e.features[0].id;
+          map.setFeatureState(
+            { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+            { hover: true }
+          );
+        }
 
         const feature = e.features[0];
         const population = feature.properties.population ? feature.properties.population.toLocaleString() : "N/A";
         const name = feature.properties.NAME || "Unknown";
 
         popup.setLngLat(e.lngLat)
-          .setHTML("<div><span class=\\"popup-label\\">Location:</span> " + name + "<br><span class=\\"popup-label\\">Population:</span> " + population + "</div>")
+          .setHTML(\'<div><span class="popup-label">Location:</span> \' + name + \'<br><span class="popup-label">Population:</span> \' + population + \'</div>\')
           .addTo(map);
       });
 
@@ -337,23 +376,63 @@ map_html <- sprintf('
         if (currentLayer !== "income") return;
         map.getCanvas().style.cursor = "pointer";
 
+        if (e.features.length > 0) {
+          if (hoveredStateId !== null) {
+            map.setFeatureState(
+              { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+              { hover: false }
+            );
+          }
+          hoveredStateId = e.features[0].id;
+          map.setFeatureState(
+            { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+            { hover: true }
+          );
+        }
+
         const feature = e.features[0];
         const income = feature.properties.income ? "$" + feature.properties.income.toLocaleString() : "N/A";
         const name = feature.properties.NAME || "Unknown";
 
         popup.setLngLat(e.lngLat)
-          .setHTML("<div><span class=\\"popup-label\\">Location:</span> " + name + "<br><span class=\\"popup-label\\">Median Income:</span> " + income + "</div>")
+          .setHTML(\'<div><span class="popup-label">Location:</span> \' + name + \'<br><span class="popup-label">Median Income:</span> \' + income + \'</div>\')
           .addTo(map);
       });
 
       map.on("mouseleave", "population-3d", () => {
+        if (hoveredStateId !== null) {
+          map.setFeatureState(
+            { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+            { hover: false }
+          );
+        }
+        hoveredStateId = null;
         map.getCanvas().style.cursor = "";
         popup.remove();
       });
 
       map.on("mouseleave", "income-3d", () => {
+        if (hoveredStateId !== null) {
+          map.setFeatureState(
+            { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+            { hover: false }
+          );
+        }
+        hoveredStateId = null;
         map.getCanvas().style.cursor = "";
         popup.remove();
+      });
+
+      // Hide roads by default in 3D mode
+      const styleLayers = map.getStyle().layers;
+      styleLayers.forEach(layer => {
+        if (layer.type === \'line\') {
+          if (layer.id.includes(\'road\') || layer.id.includes(\'street\') ||
+              layer.id.includes(\'highway\') || layer.id.includes(\'path\') ||
+              layer.id.includes(\'tunnel\') || layer.id.includes(\'bridge\')) {
+            map.setLayoutProperty(layer.id, \'visibility\', \'none\');
+          }
+        }
       });
     });
 
@@ -382,22 +461,103 @@ map_html <- sprintf('
 
     // Toggle between 3D and 2D view
     function toggle3D(is3D) {
+      const layers = map.getStyle().layers;
+
       if (is3D) {
+        // 3D mode - restore extrusion heights and hide roads
+        map.setPaintProperty("population-3d", "fill-extrusion-height", [
+          "interpolate",
+          ["linear"],
+          ["get", "population"],
+          0, 0,
+          10000, 50000
+        ]);
+        map.setPaintProperty("income-3d", "fill-extrusion-height", [
+          "interpolate",
+          ["linear"],
+          ["get", "income"],
+          0, 0,
+          200000, 100000
+        ]);
         map.easeTo({
           pitch: 60,
           bearing: -17.6,
           duration: 1000
         });
+
+        // Hide roads in 3D mode
+        roadLinesVisible = false;
+        layers.forEach(layer => {
+          if (layer.type === \'line\') {
+            if (layer.id.includes(\'road\') || layer.id.includes(\'street\') ||
+                layer.id.includes(\'highway\') || layer.id.includes(\'path\') ||
+                layer.id.includes(\'tunnel\') || layer.id.includes(\'bridge\')) {
+              map.setLayoutProperty(layer.id, \'visibility\', \'none\');
+            }
+          }
+        });
+        document.getElementById("btn-city-lines").classList.remove("active");
+
         document.getElementById("btn-3d").classList.add("active");
         document.getElementById("btn-2d").classList.remove("active");
       } else {
+        // 2D mode - flatten extrusion and show roads
+        map.setPaintProperty("population-3d", "fill-extrusion-height", 0);
+        map.setPaintProperty("income-3d", "fill-extrusion-height", 0);
         map.easeTo({
           pitch: 0,
           bearing: 0,
           duration: 1000
         });
+
+        // Show roads in 2D mode
+        roadLinesVisible = true;
+        layers.forEach(layer => {
+          if (layer.type === \'line\') {
+            if (layer.id.includes(\'road\') || layer.id.includes(\'street\') ||
+                layer.id.includes(\'highway\') || layer.id.includes(\'path\') ||
+                layer.id.includes(\'tunnel\') || layer.id.includes(\'bridge\')) {
+              map.setLayoutProperty(layer.id, \'visibility\', \'visible\');
+            }
+          }
+        });
+        document.getElementById("btn-city-lines").classList.add("active");
+
         document.getElementById("btn-3d").classList.remove("active");
         document.getElementById("btn-2d").classList.add("active");
+      }
+    }
+
+    // Toggle road lines (start with roads hidden in 3D mode)
+    let roadLinesVisible = false;
+    function toggleCityLines() {
+      roadLinesVisible = !roadLinesVisible;
+
+      // Get all layers from the map style
+      const layers = map.getStyle().layers;
+
+      // Find and toggle visibility of road/street layers
+      layers.forEach(layer => {
+        // Hide all line layers that represent roads/streets
+        if (layer.type === \'line\') {
+          // Target road, street, highway, path layers
+          if (layer.id.includes(\'road\') || layer.id.includes(\'street\') ||
+              layer.id.includes(\'highway\') || layer.id.includes(\'path\') ||
+              layer.id.includes(\'tunnel\') || layer.id.includes(\'bridge\')) {
+            map.setLayoutProperty(
+              layer.id,
+              \'visibility\',
+              roadLinesVisible ? \'visible\' : \'none\'
+            );
+          }
+        }
+      });
+
+      // Update button state
+      if (roadLinesVisible) {
+        document.getElementById("btn-city-lines").classList.add("active");
+      } else {
+        document.getElementById("btn-city-lines").classList.remove("active");
       }
     }
 
@@ -434,7 +594,7 @@ map_html <- sprintf('
           // Add a temporary marker
           new maplibregl.Popup({ closeOnClick: true })
             .setLngLat([lon, lat])
-            .setHTML("<div style=\\\\"font-weight: bold;\\\\">" + result.display_name + "</div>")
+            .setHTML(\'<div style="font-weight: bold;">\' + result.display_name + \'</div>\')
             .addTo(map);
         } else {
           alert("Address not found. Please try a different search.");
@@ -453,7 +613,10 @@ map_html <- sprintf('
     });
   </script>
 </body>
-</html>', pmtiles_file)
+</html>'
+
+# Replace %s with the pmtiles file name
+map_html <- sub("%s", pmtiles_file, map_html, fixed = TRUE)
 
 # 4. Serve using httpuv
 app <- list(
