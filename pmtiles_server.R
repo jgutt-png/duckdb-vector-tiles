@@ -329,7 +329,7 @@ map_html <- sprintf('
         const name = feature.properties.NAME || "Unknown";
 
         popup.setLngLat(e.lngLat)
-          .setHTML(\`<div><span class="popup-label">Location:</span> \${name}<br><span class="popup-label">Population:</span> \${population}</div>\`)
+          .setHTML("<div><span class=\\"popup-label\\">Location:</span> " + name + "<br><span class=\\"popup-label\\">Population:</span> " + population + "</div>")
           .addTo(map);
       });
 
@@ -342,7 +342,7 @@ map_html <- sprintf('
         const name = feature.properties.NAME || "Unknown";
 
         popup.setLngLat(e.lngLat)
-          .setHTML(\`<div><span class="popup-label">Location:</span> \${name}<br><span class="popup-label">Median Income:</span> \${income}</div>\`)
+          .setHTML("<div><span class=\\"popup-label\\">Location:</span> " + name + "<br><span class=\\"popup-label\\">Median Income:</span> " + income + "</div>")
           .addTo(map);
       });
 
