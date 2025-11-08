@@ -154,6 +154,30 @@ map_html <- sprintf('
       font-weight: bold;
       color: #333;
     }
+    #search-container {
+      margin-top: 10px;
+      display: flex;
+      gap: 5px;
+    }
+    #address-search {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 200px;
+    }
+    #search-btn {
+      padding: 8px 12px;
+      background: #2171b5;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #search-btn:hover {
+      background: #1a5a8f;
+    }
   </style>
 </head>
 <body>
@@ -165,6 +189,10 @@ map_html <- sprintf('
     <div style="margin-top: 10px;">
       <button id="btn-3d" class="active" onclick="toggle3D(true)">3D</button>
       <button id="btn-2d" onclick="toggle3D(false)">2D</button>
+    </div>
+    <div id="search-container">
+      <input type="text" id="address-search" placeholder="Search address..." />
+      <button id="search-btn" onclick="searchAddress()">Go</button>
     </div>
   </div>
   <div id="legend">
@@ -372,6 +400,55 @@ map_html <- sprintf('
         document.getElementById("btn-2d").classList.add("active");
       }
     }
+
+    // Search for address using Nominatim API
+    async function searchAddress() {
+      const searchInput = document.getElementById("address-search");
+      const address = searchInput.value.trim();
+
+      if (!address) {
+        alert("Please enter an address");
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          \`https://nominatim.openstreetmap.org/search?format=json&q=\${encodeURIComponent(address)}&countrycodes=us&limit=1\`
+        );
+        const data = await response.json();
+
+        if (data.length > 0) {
+          const result = data[0];
+          const lat = parseFloat(result.lat);
+          const lon = parseFloat(result.lon);
+
+          // Fly to the location
+          map.flyTo({
+            center: [lon, lat],
+            zoom: 14,
+            duration: 2000
+          });
+
+          // Add a temporary marker
+          new maplibregl.Popup({ closeOnClick: true })
+            .setLngLat([lon, lat])
+            .setHTML(\`<div style="font-weight: bold;">\${result.display_name}</div>\`)
+            .addTo(map);
+        } else {
+          alert("Address not found. Please try a different search.");
+        }
+      } catch (error) {
+        console.error("Geocoding error:", error);
+        alert("Error searching for address. Please try again.");
+      }
+    }
+
+    // Allow Enter key to trigger search
+    document.getElementById("address-search").addEventListener("keypress", function(event) {
+      if (event.key === "Enter") {
+        searchAddress();
+      }
+    });
   </script>
 </body>
 </html>', pmtiles_file)
