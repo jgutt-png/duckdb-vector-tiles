@@ -104,6 +104,33 @@ map_html <- sprintf('
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       z-index: 1;
     }
+    #legend {
+      position: absolute;
+      bottom: 30px;
+      right: 10px;
+      background: white;
+      padding: 15px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      z-index: 1;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+    }
+    #legend h4 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 0;
+    }
+    .legend-color {
+      width: 30px;
+      height: 15px;
+      margin-right: 8px;
+      border: 1px solid #ccc;
+    }
     button {
       margin: 5px;
       padding: 8px 16px;
@@ -119,12 +146,51 @@ map_html <- sprintf('
     button:not(.active) {
       background: #f0f0f0;
     }
+    .maplibregl-popup-content {
+      padding: 10px;
+      font-family: Arial, sans-serif;
+    }
+    .popup-label {
+      font-weight: bold;
+      color: #333;
+    }
   </style>
 </head>
 <body>
   <div id="controls">
-    <button id="btn-population" class="active" onclick="showLayer(\\"population\\")">Population</button>
-    <button id="btn-income" onclick="showLayer(\\"income\\")">Income</button>
+    <div>
+      <button id="btn-population" class="active" onclick="showLayer(\\"population\\")">Population</button>
+      <button id="btn-income" onclick="showLayer(\\"income\\")">Income</button>
+    </div>
+    <div style="margin-top: 10px;">
+      <button id="btn-3d" class="active" onclick="toggle3D(true)">3D</button>
+      <button id="btn-2d" onclick="toggle3D(false)">2D</button>
+    </div>
+  </div>
+  <div id="legend">
+    <h4 id="legend-title">Population</h4>
+    <div id="population-legend">
+      <div class="legend-item"><div class="legend-color" style="background: #08306b;"></div><span>10,000+</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #08519c;"></div><span>7,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #2171b5;"></div><span>5,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #4292c6;"></div><span>4,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #6baed6;"></div><span>3,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #9ecae1;"></div><span>2,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #c6dbef;"></div><span>1,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #deebf7;"></div><span>500</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #f7fbff;"></div><span>0</span></div>
+    </div>
+    <div id="income-legend" style="display: none;">
+      <div class="legend-item"><div class="legend-color" style="background: #004529;"></div><span>$200,000+</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #006837;"></div><span>$150,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #238443;"></div><span>$130,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #41ab5d;"></div><span>$110,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #78c679;"></div><span>$90,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #addd8e;"></div><span>$70,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #d9f0a3;"></div><span>$50,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #f7fcb9;"></div><span>$30,000</span></div>
+      <div class="legend-item"><div class="legend-color" style="background: #ffffe5;"></div><span>$0</span></div>
+    </div>
   </div>
   <div id="map"></div>
   <script>
@@ -215,6 +281,51 @@ map_html <- sprintf('
       });
 
       map.addControl(new maplibregl.NavigationControl(), "top-right");
+
+      // Add hover tooltip
+      const popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false
+      });
+
+      // Track current layer for tooltips
+      let currentLayer = "population";
+
+      map.on("mousemove", "population-3d", (e) => {
+        if (currentLayer !== "population") return;
+        map.getCanvas().style.cursor = "pointer";
+
+        const feature = e.features[0];
+        const population = feature.properties.population ? feature.properties.population.toLocaleString() : "N/A";
+        const name = feature.properties.NAME || "Unknown";
+
+        popup.setLngLat(e.lngLat)
+          .setHTML(\`<div><span class="popup-label">Location:</span> \${name}<br><span class="popup-label">Population:</span> \${population}</div>\`)
+          .addTo(map);
+      });
+
+      map.on("mousemove", "income-3d", (e) => {
+        if (currentLayer !== "income") return;
+        map.getCanvas().style.cursor = "pointer";
+
+        const feature = e.features[0];
+        const income = feature.properties.income ? "$" + feature.properties.income.toLocaleString() : "N/A";
+        const name = feature.properties.NAME || "Unknown";
+
+        popup.setLngLat(e.lngLat)
+          .setHTML(\`<div><span class="popup-label">Location:</span> \${name}<br><span class="popup-label">Median Income:</span> \${income}</div>\`)
+          .addTo(map);
+      });
+
+      map.on("mouseleave", "population-3d", () => {
+        map.getCanvas().style.cursor = "";
+        popup.remove();
+      });
+
+      map.on("mouseleave", "income-3d", () => {
+        map.getCanvas().style.cursor = "";
+        popup.remove();
+      });
     });
 
     // Toggle between population and income layers
@@ -224,11 +335,40 @@ map_html <- sprintf('
         map.setLayoutProperty("income-3d", "visibility", "none");
         document.getElementById("btn-population").classList.add("active");
         document.getElementById("btn-income").classList.remove("active");
+        document.getElementById("legend-title").textContent = "Population";
+        document.getElementById("population-legend").style.display = "block";
+        document.getElementById("income-legend").style.display = "none";
+        currentLayer = "population";
       } else if (layerType === "income") {
         map.setLayoutProperty("population-3d", "visibility", "none");
         map.setLayoutProperty("income-3d", "visibility", "visible");
         document.getElementById("btn-population").classList.remove("active");
         document.getElementById("btn-income").classList.add("active");
+        document.getElementById("legend-title").textContent = "Median Income";
+        document.getElementById("population-legend").style.display = "none";
+        document.getElementById("income-legend").style.display = "block";
+        currentLayer = "income";
+      }
+    }
+
+    // Toggle between 3D and 2D view
+    function toggle3D(is3D) {
+      if (is3D) {
+        map.easeTo({
+          pitch: 60,
+          bearing: -17.6,
+          duration: 1000
+        });
+        document.getElementById("btn-3d").classList.add("active");
+        document.getElementById("btn-2d").classList.remove("active");
+      } else {
+        map.easeTo({
+          pitch: 0,
+          bearing: 0,
+          duration: 1000
+        });
+        document.getElementById("btn-3d").classList.remove("active");
+        document.getElementById("btn-2d").classList.add("active");
       }
     }
   </script>
