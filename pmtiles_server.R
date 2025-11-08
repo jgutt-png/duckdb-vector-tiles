@@ -413,7 +413,9 @@ map_html <- sprintf('
 
       try {
         const response = await fetch(
-          \`https://nominatim.openstreetmap.org/search?format=json&q=\${encodeURIComponent(address)}&countrycodes=us&limit=1\`
+          "https://nominatim.openstreetmap.org/search?format=json&q=" +
+          encodeURIComponent(address) +
+          "&countrycodes=us&limit=1"
         );
         const data = await response.json();
 
@@ -432,7 +434,7 @@ map_html <- sprintf('
           // Add a temporary marker
           new maplibregl.Popup({ closeOnClick: true })
             .setLngLat([lon, lat])
-            .setHTML(\`<div style="font-weight: bold;">\${result.display_name}</div>\`)
+            .setHTML("<div style=\\"font-weight: bold;\\">" + result.display_name + "</div>")
             .addTo(map);
         } else {
           alert("Address not found. Please try a different search.");
