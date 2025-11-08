@@ -88,6 +88,7 @@ map_html <- '
   <meta charset="utf-8">
   <title>US Population 3D Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect width=\'100\' height=\'100\' rx=\'15\' fill=\'%232171b5\'/%3E%3Cg transform=\'translate(30,20) scale(2)\'%3E%3Cpath fill=\'white\' fill-rule=\'evenodd\' d=\'m9.69 18.933.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 0 0 .281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 1 0 3 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 0 0 2.273 1.765 11.842 11.842 0 0 0 .976.544l.062.029.018.008.006.003ZM10 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z\' clip-rule=\'evenodd\'/%3E%3C/g%3E%3C/svg%3E">
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
   <script src="https://unpkg.com/pmtiles@2.11.0/dist/index.js"></script>
@@ -139,6 +140,8 @@ map_html <- '
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
+      height: 34px;
+      box-sizing: border-box;
     }
     button.active {
       background: #2171b5;
@@ -156,14 +159,14 @@ map_html <- '
       color: #333;
     }
     #address-search {
-      padding: 8px 12px;
+      padding: 7px 12px;
       border: 1px solid #ccc;
       border-radius: 4px;
       font-size: 14px;
       width: 200px;
       margin-left: 5px;
-      height: 34px;
       box-sizing: border-box;
+      vertical-align: middle;
     }
     #search-btn {
       padding: 8px 12px;
@@ -173,8 +176,8 @@ map_html <- '
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
-      height: 34px;
       box-sizing: border-box;
+      vertical-align: middle;
     }
     #search-btn:hover {
       background: #1a5a8f;
@@ -184,23 +187,23 @@ map_html <- '
       top: 10px;
       right: 10px;
       background: white;
-      padding: 15px;
-      border-radius: 4px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       z-index: 10;
       font-family: Arial, sans-serif;
-      font-size: 14px;
-      max-width: 300px;
+      font-size: 15px;
+      width: 380px;
       display: none;
     }
     #stats-panel h3 {
-      margin: 0 0 10px 0;
-      font-size: 16px;
+      margin: 0 0 15px 0;
+      font-size: 18px;
       border-bottom: 2px solid #2171b5;
-      padding-bottom: 5px;
+      padding-bottom: 8px;
     }
     #stats-panel .stat-row {
-      margin: 8px 0;
+      margin: 12px 0;
       display: flex;
       justify-content: space-between;
     }
@@ -214,15 +217,53 @@ map_html <- '
     }
     #stats-panel .close-btn {
       position: absolute;
-      top: 5px;
-      right: 8px;
+      top: 8px;
+      right: 12px;
       cursor: pointer;
-      font-size: 20px;
+      font-size: 24px;
       color: #999;
       line-height: 1;
     }
     #stats-panel .close-btn:hover {
       color: #333;
+    }
+    .radius-selector {
+      margin-top: 15px;
+      padding-top: 12px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .radius-selector-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .radius-options {
+      display: flex;
+      gap: 5px;
+      background: #f5f5f5;
+      padding: 4px;
+      border-radius: 6px;
+    }
+    .radius-option {
+      flex: 1;
+      padding: 8px 0;
+      text-align: center;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #666;
+      transition: all 0.2s;
+    }
+    .radius-option:hover {
+      background: #e0e0e0;
+    }
+    .radius-option.active {
+      background: #2171b5;
+      color: white;
     }
   </style>
 </head>
@@ -238,6 +279,7 @@ map_html <- '
       <button id="btn-3d" class="active" onclick="toggle3D(true)">3D</button>
       <button id="btn-2d" onclick="toggle3D(false)">2D</button>
       <button id="btn-city-lines" onclick="toggleCityLines()">Roads</button>
+      <button id="btn-buildings" onclick="toggleBuildings()">Buildings</button>
       <button id="btn-pin" onclick="togglePinMode()">Pin</button>
     </div>
   </div>
@@ -268,7 +310,7 @@ map_html <- '
   </div>
   <div id="stats-panel">
     <span class="close-btn" onclick="closeStatsPanel()">&times;</span>
-    <h3>3-Mile Radius Stats</h3>
+    <h3 id="stats-title">3-Mile Radius Stats</h3>
     <div id="stats-content">
       <div class="stat-row">
         <span class="stat-label">Total Population:</span>
@@ -284,7 +326,16 @@ map_html <- '
       </div>
       <div class="stat-row">
         <span class="stat-label">Area:</span>
-        <span class="stat-value">3 mile radius</span>
+        <span class="stat-value" id="stat-area">3 mile radius</span>
+      </div>
+      <div class="radius-selector">
+        <div class="radius-selector-label">Select Radius</div>
+        <div class="radius-options">
+          <button class="radius-option active" onclick="changeRadius(3)">3 mi</button>
+          <button class="radius-option" onclick="changeRadius(5)">5 mi</button>
+          <button class="radius-option" onclick="changeRadius(10)">10 mi</button>
+          <button class="radius-option" onclick="changeRadius(25)">25 mi</button>
+        </div>
       </div>
     </div>
   </div>
@@ -297,6 +348,11 @@ map_html <- '
     let currentLayer = "population";
     let currentMarker = null;
     let pinModeActive = false;
+    let selectedRadius = 3; // miles
+    let lastPinLocation = null;
+    let censusStyleActive = true; // Track if showing census data or buildings
+    const CENSUS_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+    const BUILDINGS_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
     const map = new maplibregl.Map({
       container: "map",
@@ -549,30 +605,31 @@ map_html <- '
           \'fill-extrusion-color\': \'#FF3333\',
           \'fill-extrusion-height\': 70000,
           \'fill-extrusion-base\': 0,
-          \'fill-extrusion-opacity\': 0.4
+          \'fill-extrusion-opacity\': 0.4,
+          \'fill-extrusion-height-transition\': {
+            duration: 600,
+            delay: 0
+          }
         },
         layout: {
           \'visibility\': \'none\'
         }
       });
 
-      // Add 3D pin marker (tall spike)
+      // Add 3D pin marker as thin vertical line
       map.addLayer({
         id: \'pin-3d-marker\',
         type: \'fill-extrusion\',
         source: \'pin-3d\',
         paint: {
-          \'fill-extrusion-color\': [
-            \'interpolate\',
-            [\'linear\'],
-            [\'get-height\'],
-            0, \'#FF0000\',
-            50000, \'#FF6666\',
-            100000, \'#FF0000\'
-          ],
+          \'fill-extrusion-color\': \'#FF0000\',
           \'fill-extrusion-height\': 100000,
           \'fill-extrusion-base\': 0,
-          \'fill-extrusion-opacity\': 0.95
+          \'fill-extrusion-opacity\': 1,
+          \'fill-extrusion-height-transition\': {
+            duration: 600,
+            delay: 0
+          }
         },
         layout: {
           \'visibility\': \'none\'
@@ -604,11 +661,14 @@ map_html <- '
             .addTo(map);
         }
 
-        // Calculate stats for 3-mile radius and get dynamic height
+        // Store the pin location for radius changes
+        lastPinLocation = e.lngLat;
+
+        // Calculate stats for selected radius and get dynamic height
         const radiusHeight = calculateRadiusStats(e.lngLat);
 
-        // Create and display 3-mile radius circle
-        const radiusMiles = 3;
+        // Create and display radius circle
+        const radiusMiles = selectedRadius;
         const radiusKm = radiusMiles * 1.60934;
         const centerPoint = turf.point([e.lngLat.lng, e.lngLat.lat]);
         const circle = turf.circle(centerPoint, radiusKm, { units: \'kilometers\', steps: 64 });
@@ -621,17 +681,17 @@ map_html <- '
         map.setPaintProperty(\'radius-circle-3d\', \'fill-extrusion-height\', radiusHeight);
         map.setLayoutProperty(\'radius-circle-3d\', \'visibility\', \'visible\');
 
-        // Create 3D pin (small buffered point for tall spike) - make it taller than radius
-        const pin3D = turf.buffer(centerPoint, 0.03, { units: \'kilometers\' });
+        // Create 3D pin as thin vertical line - make it extend to top of radius
+        const pin3D = turf.buffer(centerPoint, 0.0005, { units: \'kilometers\' });
         map.getSource(\'pin-3d\').setData(pin3D);
         map.setPaintProperty(\'pin-3d-marker\', \'fill-extrusion-height\', radiusHeight * 1.5);
         map.setLayoutProperty(\'pin-3d-marker\', \'visibility\', \'visible\');
       });
     });
 
-    // Calculate statistics within 3-mile radius
+    // Calculate statistics within selected radius
     function calculateRadiusStats(center) {
-      const radiusMiles = 3;
+      const radiusMiles = selectedRadius;
       const radiusKm = radiusMiles * 1.60934;
 
       // Create circle using turf
@@ -726,6 +786,8 @@ map_html <- '
       document.getElementById(\'stat-population\').textContent = totalPopulation.toLocaleString();
       document.getElementById(\'stat-income\').textContent = avgIncome > 0 ? \'$\' + avgIncome.toLocaleString() : \'N/A\';
       document.getElementById(\'stat-blocks\').textContent = blockCount.toLocaleString();
+      document.getElementById(\'stat-area\').textContent = radiusMiles + \' mile radius\';
+      document.getElementById(\'stats-title\').textContent = radiusMiles + \'-Mile Radius Stats\';
 
       // Show stats panel
       document.getElementById(\'stats-panel\').style.display = \'block\';
@@ -741,6 +803,8 @@ map_html <- '
         currentMarker.remove();
         currentMarker = null;
       }
+      // Clear last pin location
+      lastPinLocation = null;
       // Hide all pin visualization layers
       map.setLayoutProperty(\'radius-circle-line\', \'visibility\', \'none\');
       map.setLayoutProperty(\'radius-circle-3d\', \'visibility\', \'none\');
@@ -759,6 +823,61 @@ map_html <- '
         map.getCanvas().style.cursor = \'\';
         // Close stats panel and remove pin when deactivating
         closeStatsPanel();
+      }
+    }
+
+    // Animate circle expansion from old radius to new radius
+    function animateCircleExpansion(centerPoint, fromRadiusKm, toRadiusKm, duration = 600) {
+      const startTime = performance.now();
+
+      function updateCircle(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Easing function (ease-out quad)
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+        // Interpolate radius
+        const currentRadiusKm = fromRadiusKm + (toRadiusKm - fromRadiusKm) * easeProgress;
+        const circle = turf.circle(centerPoint, currentRadiusKm, { units: \'kilometers\', steps: 64 });
+
+        // Update circle source
+        map.getSource(\'pin-circle\').setData(circle);
+
+        // Continue animation if not done
+        if (progress < 1) {
+          requestAnimationFrame(updateCircle);
+        }
+      }
+
+      requestAnimationFrame(updateCircle);
+    }
+
+    // Change radius and recalculate stats
+    function changeRadius(newRadius) {
+      const oldRadius = selectedRadius;
+      selectedRadius = newRadius;
+
+      // Update active button state
+      document.querySelectorAll(\'.radius-option\').forEach(btn => {
+        btn.classList.remove(\'active\');
+      });
+      event.target.classList.add(\'active\');
+
+      // If there\'s a pin placed, recalculate stats and update visualization
+      if (lastPinLocation) {
+        const radiusHeight = calculateRadiusStats(lastPinLocation);
+
+        // Animate the radius circle expansion
+        const oldRadiusKm = oldRadius * 1.60934;
+        const newRadiusKm = selectedRadius * 1.60934;
+        const centerPoint = turf.point([lastPinLocation.lng, lastPinLocation.lat]);
+
+        animateCircleExpansion(centerPoint, oldRadiusKm, newRadiusKm, 600);
+
+        // Update 3D visualization heights (these will animate automatically due to transitions)
+        map.setPaintProperty(\'radius-circle-3d\', \'fill-extrusion-height\', radiusHeight);
+        map.setPaintProperty(\'pin-3d-marker\', \'fill-extrusion-height\', radiusHeight * 1.5);
       }
     }
 
@@ -826,8 +945,311 @@ map_html <- '
       }
     });
 
+    // Function to setup hover handlers (used after style switches)
+    function setupHoverHandlers() {
+      const popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        anchor: "bottom"
+      });
+
+      let hoveredStateId = null;
+
+      map.on("mousemove", "population-3d", (e) => {
+        if (currentLayer !== "population") return;
+        map.getCanvas().style.cursor = "pointer";
+
+        if (e.features.length > 0) {
+          if (hoveredStateId !== null) {
+            map.setFeatureState(
+              { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+              { hover: false }
+            );
+          }
+          hoveredStateId = e.features[0].id;
+          map.setFeatureState(
+            { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+            { hover: true }
+          );
+        }
+
+        const feature = e.features[0];
+        const population = feature.properties.population ? feature.properties.population.toLocaleString() : "N/A";
+        const name = feature.properties.NAME || "Unknown";
+
+        popup.setLngLat(e.lngLat)
+          .setHTML(\'<div><span class="popup-label">Location:</span> \' + name + \'<br><span class="popup-label">Population:</span> \' + population + \'</div>\')
+          .addTo(map);
+      });
+
+      map.on("mousemove", "income-3d", (e) => {
+        if (currentLayer !== "income") return;
+        map.getCanvas().style.cursor = "pointer";
+
+        if (e.features.length > 0) {
+          if (hoveredStateId !== null) {
+            map.setFeatureState(
+              { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+              { hover: false }
+            );
+          }
+          hoveredStateId = e.features[0].id;
+          map.setFeatureState(
+            { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+            { hover: true }
+          );
+        }
+
+        const feature = e.features[0];
+        const income = feature.properties.income ? "$" + feature.properties.income.toLocaleString() : "N/A";
+        const name = feature.properties.NAME || "Unknown";
+
+        popup.setLngLat(e.lngLat)
+          .setHTML(\'<div><span class="popup-label">Location:</span> \' + name + \'<br><span class="popup-label">Median Income:</span> \' + income + \'</div>\')
+          .addTo(map);
+      });
+
+      map.on("mouseleave", "population-3d", () => {
+        if (hoveredStateId !== null) {
+          map.setFeatureState(
+            { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+            { hover: false }
+          );
+        }
+        hoveredStateId = null;
+        map.getCanvas().style.cursor = "";
+        popup.remove();
+      });
+
+      map.on("mouseleave", "income-3d", () => {
+        if (hoveredStateId !== null) {
+          map.setFeatureState(
+            { source: \'population\', sourceLayer: \'population\', id: hoveredStateId },
+            { hover: false }
+          );
+        }
+        hoveredStateId = null;
+        map.getCanvas().style.cursor = "";
+        popup.remove();
+      });
+    }
+
     // Toggle between population and income layers
     function showLayer(layerType) {
+      currentLayer = layerType;
+
+      // If in buildings mode, switch back to census style first
+      if (!censusStyleActive) {
+        buildingsVisible = false;
+        document.getElementById("btn-buildings").classList.remove("active");
+        censusStyleActive = true;
+
+        // Update UI immediately for better UX
+        if (layerType === "population") {
+          document.getElementById("btn-population").classList.add("active");
+          document.getElementById("btn-income").classList.remove("active");
+          document.getElementById("legend-title").textContent = "Population";
+          document.getElementById("population-legend").style.display = "block";
+          document.getElementById("income-legend").style.display = "none";
+        } else if (layerType === "income") {
+          document.getElementById("btn-population").classList.remove("active");
+          document.getElementById("btn-income").classList.add("active");
+          document.getElementById("legend-title").textContent = "Median Income";
+          document.getElementById("population-legend").style.display = "none";
+          document.getElementById("income-legend").style.display = "block";
+        }
+        document.getElementById("legend").style.display = "block";
+
+        // Store current camera position
+        const currentCenter = map.getCenter();
+        const currentZoom = map.getZoom();
+        const currentPitch = map.getPitch();
+        const currentBearing = map.getBearing();
+
+        console.log("Switching from Buildings to Census mode for layerType: " + layerType);
+        console.log("Camera - center:", currentCenter, "zoom:", currentZoom, "pitch:", currentPitch);
+
+        map.setStyle(CENSUS_STYLE);
+        console.log("setStyle called, waiting for map to be ready...");
+
+        // Use idle event instead of style.load - it fires reliably after style changes
+        map.once(\'idle\', () => {
+          console.log("✓✓✓ Map idle - style fully loaded! ✓✓✓");
+
+          try {
+            // Restore camera position immediately
+            map.jumpTo({
+              center: currentCenter,
+              zoom: currentZoom,
+              pitch: currentPitch,
+              bearing: currentBearing
+            });
+            console.log("✓ Camera position restored");
+
+            // Re-add PMTiles source (check if it exists first)
+            if (!map.getSource("population")) {
+              map.addSource("population", {
+                type: "vector",
+                url: "pmtiles:///us_population.pmtiles",
+                attribution: "US Census Bureau"
+              });
+              console.log("✓ PMTiles source added");
+            } else {
+              console.log("✓ PMTiles source already exists");
+            }
+
+            // Find first symbol layer for insertion
+            const layers = map.getStyle().layers;
+            console.log("Style has " + layers.length + " layers");
+            let firstSymbolId;
+            for (const layer of layers) {
+              if (layer.type === \'symbol\') {
+                firstSymbolId = layer.id;
+                break;
+              }
+            }
+            console.log("First symbol layer: " + firstSymbolId);
+
+            // Remove existing layers if they exist (just in case)
+            if (map.getLayer("population-3d")) {
+              console.log("Removing existing population-3d layer");
+              map.removeLayer("population-3d");
+            }
+            if (map.getLayer("income-3d")) {
+              console.log("Removing existing income-3d layer");
+              map.removeLayer("income-3d");
+            }
+
+            // Re-add layers EXACTLY as in initial load (no layout for population, visibility none for income)
+            console.log("Adding population-3d layer...");
+            map.addLayer({
+            id: "population-3d",
+            type: "fill-extrusion",
+            source: "population",
+            "source-layer": "population",
+            paint: {
+              "fill-extrusion-color": [
+                "case",
+                ["boolean", ["feature-state", "hover"], false],
+                "#ffff00",
+                [
+                  "interpolate",
+                  ["linear"],
+                  ["coalesce", ["get", "population"], 0],
+                  0, "#f7fbff",
+                  500, "#deebf7",
+                  1000, "#c6dbef",
+                  2000, "#9ecae1",
+                  3000, "#6baed6",
+                  4000, "#4292c6",
+                  5000, "#2171b5",
+                  7000, "#08519c",
+                  10000, "#08306b"
+                ]
+              ],
+              "fill-extrusion-height": [
+                "interpolate",
+                ["linear"],
+                ["coalesce", ["get", "population"], 0],
+                0, 0,
+                10000, 50000
+              ],
+              "fill-extrusion-opacity": 0.9
+            }
+          }, firstSymbolId);
+          console.log("✓ Population layer added successfully");
+
+          // Income layer (hidden by default)
+          console.log("Adding income-3d layer...");
+          map.addLayer({
+            id: "income-3d",
+            type: "fill-extrusion",
+            source: "population",
+            "source-layer": "population",
+            layout: {
+              "visibility": "none"
+            },
+            paint: {
+              "fill-extrusion-color": [
+                "case",
+                ["boolean", ["feature-state", "hover"], false],
+                "#ffff00",
+                [
+                  "interpolate",
+                  ["linear"],
+                  ["coalesce", ["get", "income"], 0],
+                  0, "#ffffe5",
+                  30000, "#f7fcb9",
+                  50000, "#d9f0a3",
+                  70000, "#addd8e",
+                  90000, "#78c679",
+                  110000, "#41ab5d",
+                  130000, "#238443",
+                  150000, "#006837",
+                  200000, "#004529"
+                ]
+              ],
+              "fill-extrusion-height": [
+                "interpolate",
+                ["linear"],
+                ["coalesce", ["get", "income"], 0],
+                0, 0,
+                200000, 100000
+              ],
+              "fill-extrusion-opacity": 0.9
+            }
+          }, firstSymbolId);
+          console.log("✓ Income layer added successfully");
+
+          // Verify layers were added
+          const popLayerExists = map.getLayer("population-3d");
+          const incLayerExists = map.getLayer("income-3d");
+          console.log("Layer verification - population-3d: " + (popLayerExists ? "EXISTS" : "MISSING"));
+          console.log("Layer verification - income-3d: " + (incLayerExists ? "EXISTS" : "MISSING"));
+
+          // Now toggle visibility based on layerType
+          console.log("Setting visibility for layerType: " + layerType);
+          if (layerType === \'income\') {
+            map.setLayoutProperty("population-3d", "visibility", "none");
+            map.setLayoutProperty("income-3d", "visibility", "visible");
+            console.log("✓ Visibility toggled to income");
+          } else {
+            console.log("✓ Population visible by default");
+          }
+
+          // Hide roads if in 3D mode
+          if (currentPitch > 0) {
+            const styleLayers = map.getStyle().layers;
+            styleLayers.forEach(layer => {
+              if (layer.type === \'line\') {
+                if (layer.id.includes(\'road\') || layer.id.includes(\'street\') ||
+                    layer.id.includes(\'highway\') || layer.id.includes(\'path\') ||
+                    layer.id.includes(\'tunnel\') || layer.id.includes(\'bridge\')) {
+                  map.setLayoutProperty(layer.id, \'visibility\', \'none\');
+                }
+              }
+            });
+            console.log("✓ Roads hidden (3D mode)");
+          }
+
+          // Re-setup hover handlers
+          setupHoverHandlers();
+
+          console.log("✓✓✓ Census layers fully restored! ✓✓✓");
+          } catch (error) {
+            console.error("ERROR in style.load callback:", error);
+            console.error("Error stack:", error.stack);
+          }
+        });
+        return;
+      }
+
+      // Otherwise just toggle layers normally (but check they exist first)
+      if (!map.getLayer("population-3d") || !map.getLayer("income-3d")) {
+        console.warn("Census layers not ready yet, ignoring toggle");
+        return;
+      }
+
       if (layerType === "population") {
         map.setLayoutProperty("population-3d", "visibility", "visible");
         map.setLayoutProperty("income-3d", "visibility", "none");
@@ -836,7 +1258,6 @@ map_html <- '
         document.getElementById("legend-title").textContent = "Population";
         document.getElementById("population-legend").style.display = "block";
         document.getElementById("income-legend").style.display = "none";
-        currentLayer = "population";
       } else if (layerType === "income") {
         map.setLayoutProperty("population-3d", "visibility", "none");
         map.setLayoutProperty("income-3d", "visibility", "visible");
@@ -845,30 +1266,33 @@ map_html <- '
         document.getElementById("legend-title").textContent = "Median Income";
         document.getElementById("population-legend").style.display = "none";
         document.getElementById("income-legend").style.display = "block";
-        currentLayer = "income";
       }
     }
 
     // Toggle between 3D and 2D view
     function toggle3D(is3D) {
+      // Check if census layers exist (may not if in buildings mode)
+      const hasCensusLayers = map.getLayer("population-3d") && map.getLayer("income-3d");
       const layers = map.getStyle().layers;
 
       if (is3D) {
         // 3D mode - restore extrusion heights and hide roads
-        map.setPaintProperty("population-3d", "fill-extrusion-height", [
-          "interpolate",
-          ["linear"],
-          ["get", "population"],
-          0, 0,
-          10000, 50000
-        ]);
-        map.setPaintProperty("income-3d", "fill-extrusion-height", [
-          "interpolate",
-          ["linear"],
-          ["get", "income"],
-          0, 0,
-          200000, 100000
-        ]);
+        if (hasCensusLayers) {
+          map.setPaintProperty("population-3d", "fill-extrusion-height", [
+            "interpolate",
+            ["linear"],
+            ["get", "population"],
+            0, 0,
+            10000, 50000
+          ]);
+          map.setPaintProperty("income-3d", "fill-extrusion-height", [
+            "interpolate",
+            ["linear"],
+            ["get", "income"],
+            0, 0,
+            200000, 100000
+          ]);
+        }
         map.easeTo({
           pitch: 60,
           bearing: -17.6,
@@ -892,8 +1316,10 @@ map_html <- '
         document.getElementById("btn-2d").classList.remove("active");
       } else {
         // 2D mode - flatten extrusion and show roads
-        map.setPaintProperty("population-3d", "fill-extrusion-height", 0);
-        map.setPaintProperty("income-3d", "fill-extrusion-height", 0);
+        if (hasCensusLayers) {
+          map.setPaintProperty("population-3d", "fill-extrusion-height", 0);
+          map.setPaintProperty("income-3d", "fill-extrusion-height", 0);
+        }
         map.easeTo({
           pitch: 0,
           bearing: 0,
@@ -920,6 +1346,8 @@ map_html <- '
 
     // Toggle road lines (start with roads hidden in 3D mode)
     let roadLinesVisible = false;
+    let buildingsVisible = false;
+
     function toggleCityLines() {
       roadLinesVisible = !roadLinesVisible;
 
@@ -948,6 +1376,246 @@ map_html <- '
         document.getElementById("btn-city-lines").classList.add("active");
       } else {
         document.getElementById("btn-city-lines").classList.remove("active");
+      }
+    }
+
+    // Toggle 3D buildings - switch to liberty style
+    function toggleBuildings() {
+      buildingsVisible = !buildingsVisible;
+
+      if (buildingsVisible) {
+        // Switch to OpenFreeMap liberty style (includes 3D buildings, POIs, parks, water)
+        censusStyleActive = false;
+        map.setStyle(BUILDINGS_STYLE);
+
+        // Add enhancement layers after style loads
+        map.once(\'style.load\', () => {
+          // Remove existing flat landcover layers
+          if (map.getLayer(\'landcover_wood\')) map.removeLayer(\'landcover_wood\');
+          if (map.getLayer(\'landcover_grass\')) map.removeLayer(\'landcover_grass\');
+
+          // Make buildings appear at lower zoom levels
+          const buildingLayers = map.getStyle().layers.filter(l =>
+            l.id.includes(\'building\') && l.type === \'fill-extrusion\'
+          );
+          buildingLayers.forEach(layer => {
+            if (layer.minzoom) {
+              map.setLayerZoomRange(layer.id, Math.max(0, layer.minzoom - 3), layer.maxzoom || 24);
+            }
+          });
+
+          // Find insertion point (before symbols/labels)
+          const layers = map.getStyle().layers;
+          let firstSymbolId;
+          for (const layer of layers) {
+            if (layer.type === \'symbol\') {
+              firstSymbolId = layer.id;
+              break;
+            }
+          }
+
+          // Add 3D forest/tree canopy
+          map.addLayer({
+            id: \'forest-3d\',
+            type: \'fill-extrusion\',
+            source: \'openmaptiles\',
+            \'source-layer\': \'landcover\',
+            filter: [\'==\', [\'get\', \'class\'], \'wood\'],
+            paint: {
+              \'fill-extrusion-color\': [
+                \'interpolate\', [\'linear\'], [\'zoom\'],
+                10, \'#2d5016\',
+                14, \'#1b5e20\',
+                18, \'#0d3d0d\'
+              ],
+              \'fill-extrusion-height\': [
+                \'interpolate\', [\'linear\'], [\'zoom\'],
+                10, 0,
+                12, 1000,
+                14, 3000,
+                16, 6000,
+                18, 12000
+              ],
+              \'fill-extrusion-base\': 0,
+              \'fill-extrusion-opacity\': 0.85
+            }
+          }, firstSymbolId);
+
+          // Add 3D grass/park areas
+          map.addLayer({
+            id: \'grass-3d\',
+            type: \'fill-extrusion\',
+            source: \'openmaptiles\',
+            \'source-layer\': \'landcover\',
+            filter: [\'==\', [\'get\', \'class\'], \'grass\'],
+            paint: {
+              \'fill-extrusion-color\': [
+                \'interpolate\', [\'linear\'], [\'zoom\'],
+                12, \'#9ccc65\',
+                16, \'#7cb342\',
+                18, \'#689f38\'
+              ],
+              \'fill-extrusion-height\': [
+                \'interpolate\', [\'linear\'], [\'zoom\'],
+                12, 0,
+                14, 500,
+                16, 1500,
+                18, 3000
+              ],
+              \'fill-extrusion-base\': 0,
+              \'fill-extrusion-opacity\': 0.7
+            }
+          }, firstSymbolId);
+
+          // Add 3D farmland
+          map.addLayer({
+            id: \'farmland-3d\',
+            type: \'fill-extrusion\',
+            source: \'openmaptiles\',
+            \'source-layer\': \'landcover\',
+            filter: [\'==\', [\'get\', \'class\'], \'farmland\'],
+            paint: {
+              \'fill-extrusion-color\': \'#c5e1a5\',
+              \'fill-extrusion-height\': [
+                \'interpolate\', [\'linear\'], [\'zoom\'],
+                14, 0,
+                16, 300,
+                18, 800
+              ],
+              \'fill-extrusion-opacity\': 0.5
+            }
+          }, firstSymbolId);
+        });
+
+        // Update button states
+        document.getElementById("btn-buildings").classList.add("active");
+        document.getElementById("btn-population").classList.remove("active");
+        document.getElementById("btn-income").classList.remove("active");
+
+        // Hide legend in Buildings mode
+        document.getElementById("legend").style.display = "none";
+      } else {
+        // Switch back to census style
+        censusStyleActive = true;
+        map.setStyle(CENSUS_STYLE);
+
+        // Re-add census data after style loads
+        map.once(\'style.load\', () => {
+          // Re-add PMTiles source
+          map.addSource("population", {
+            type: "vector",
+            url: "pmtiles:///%s",
+            attribution: "US Census Bureau"
+          });
+
+          // Find first symbol layer for insertion
+          const layers = map.getStyle().layers;
+          let firstSymbolId;
+          for (const layer of layers) {
+            if (layer.type === \'symbol\') {
+              firstSymbolId = layer.id;
+              break;
+            }
+          }
+
+          // Re-add population layer
+          map.addLayer({
+            id: "population-3d",
+            type: "fill-extrusion",
+            source: "population",
+            "source-layer": "population",
+            layout: {
+              "visibility": currentLayer === \'population\' ? \'visible\' : \'none\'
+            },
+            paint: {
+              "fill-extrusion-color": [
+                "case",
+                ["boolean", ["feature-state", "hover"], false],
+                "#ffff00",
+                [
+                  "interpolate",
+                  ["linear"],
+                  ["get", "population"],
+                  0, "#f7fbff",
+                  500, "#deebf7",
+                  1000, "#c6dbef",
+                  2000, "#9ecae1",
+                  3000, "#6baed6",
+                  4000, "#4292c6",
+                  5000, "#2171b5",
+                  7000, "#08519c",
+                  10000, "#08306b"
+                ]
+              ],
+              "fill-extrusion-height": [
+                "interpolate",
+                ["linear"],
+                ["get", "population"],
+                0, 0,
+                10000, 50000
+              ],
+              "fill-extrusion-opacity": 0.9
+            }
+          }, firstSymbolId);
+
+          // Re-add income layer
+          map.addLayer({
+            id: "income-3d",
+            type: "fill-extrusion",
+            source: "population",
+            "source-layer": "population",
+            layout: {
+              "visibility": currentLayer === \'income\' ? \'visible\' : \'none\'
+            },
+            paint: {
+              "fill-extrusion-color": [
+                "case",
+                ["boolean", ["feature-state", "hover"], false],
+                "#ffff00",
+                [
+                  "interpolate",
+                  ["linear"],
+                  ["get", "income"],
+                  0, "#ffffe5",
+                  30000, "#f7fcb9",
+                  50000, "#d9f0a3",
+                  70000, "#addd8e",
+                  90000, "#78c679",
+                  110000, "#41ab5d",
+                  130000, "#238443",
+                  150000, "#006837",
+                  200000, "#004529"
+                ]
+              ],
+              "fill-extrusion-height": [
+                "interpolate",
+                ["linear"],
+                ["get", "income"],
+                0, 0,
+                200000, 100000
+              ],
+              "fill-extrusion-opacity": 0.9
+            }
+          }, firstSymbolId);
+
+          // Restore button states and legend
+          if (currentLayer === \'population\') {
+            document.getElementById("btn-population").classList.add("active");
+            document.getElementById("legend-title").textContent = "Population";
+            document.getElementById("population-legend").style.display = "block";
+            document.getElementById("income-legend").style.display = "none";
+          } else {
+            document.getElementById("btn-income").classList.add("active");
+            document.getElementById("legend-title").textContent = "Median Income";
+            document.getElementById("population-legend").style.display = "none";
+            document.getElementById("income-legend").style.display = "block";
+          }
+
+          // Show legend
+          document.getElementById("legend").style.display = "block";
+        });
+
+        document.getElementById("btn-buildings").classList.remove("active");
       }
     }
 
