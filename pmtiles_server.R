@@ -11,65 +11,71 @@ library(httpuv)
 census_api_key("50076e92f117dd465e96d431111e6b3005f4a9b4")
 options(tigris_use_cache = TRUE)  # Cache shapefiles for faster subsequent runs
 
-# 1. Fetch ALL US block group population data (state by state)
-cat("Fetching population data for ALL US block groups...\n")
-cat("This will take 5-10 minutes (fetching each state)...\n")
-
-# List of all US states + DC and PR
-states <- c(state.abb, "DC", "PR")
-
-# Fetch data for each state and combine
-us_population <- NULL
-for (state in states) {
-  cat("Fetching", state, "...\n")
-  tryCatch({
-    state_data <- get_acs(
-      geography = "block group",
-      variables = c(
-        population = "B01003_001",  # Total population
-        income = "B19013_001"       # Median household income
-      ),
-      state = state,
-      year = 2023,  # Latest available ACS data
-      geometry = TRUE,
-      output = "wide"
-    ) %>%
-      select(
-        GEOID,
-        NAME,
-        population = populationE,
-        income = incomeE,
-        geometry
-      )
-
-    if (is.null(us_population)) {
-      us_population <- state_data
-    } else {
-      us_population <- rbind(us_population, state_data)
-    }
-
-    cat("  Fetched", nrow(state_data), "block groups from", state, "\n")
-  }, error = function(e) {
-    cat("  Skipping", state, "- error:", e$message, "\n")
-  })
-}
-
-cat("Total:", nrow(us_population), "block groups fetched\n")
-
-# 2. Create PMTiles directly from sf object
+# 1. Check if PMTiles file already exists (persistent volume caching)
 pmtiles_file <- "us_population.pmtiles"
-cat("Creating PMTiles archive...\n")
-cat("This will take several minutes for all US data...\n")
 
-pm_create(
-  input = us_population,
-  output = pmtiles_file,
-  layer_name = "population",
-  min_zoom = 0,
-  max_zoom = 14
-)
+if (file.exists(pmtiles_file)) {
+  cat("Found existing PMTiles file - skipping data fetch!\n")
+  cat("File size:", round(file.info(pmtiles_file)$size / 1024 / 1024, 2), "MB\n")
+} else {
+  cat("No cached data found - fetching from Census API...\n")
+  cat("This will take 10-15 minutes (one-time only)...\n")
 
-cat("PMTiles file created:", pmtiles_file, "\n")
+  # List of all US states + DC and PR
+  states <- c(state.abb, "DC", "PR")
+
+  # Fetch data for each state and combine
+  us_population <- NULL
+  for (state in states) {
+    cat("Fetching", state, "...\n")
+    tryCatch({
+      state_data <- get_acs(
+        geography = "block group",
+        variables = c(
+          population = "B01003_001",  # Total population
+          income = "B19013_001"       # Median household income
+        ),
+        state = state,
+        year = 2023,  # Latest available ACS data
+        geometry = TRUE,
+        output = "wide"
+      ) %>%
+        select(
+          GEOID,
+          NAME,
+          population = populationE,
+          income = incomeE,
+          geometry
+        )
+
+      if (is.null(us_population)) {
+        us_population <- state_data
+      } else {
+        us_population <- rbind(us_population, state_data)
+      }
+
+      cat("  Fetched", nrow(state_data), "block groups from", state, "\n")
+    }, error = function(e) {
+      cat("  Skipping", state, "- error:", e$message, "\n")
+    })
+  }
+
+  cat("Total:", nrow(us_population), "block groups fetched\n")
+
+  # 2. Create PMTiles file
+  cat("Creating PMTiles archive...\n")
+  pm_create(
+    input = us_population,
+    output = pmtiles_file,
+    layer_name = "population",
+    min_zoom = 0,
+    max_zoom = 14
+  )
+
+  cat("PMTiles file created:", pmtiles_file, "\n")
+  cat("File size:", round(file.info(pmtiles_file)$size / 1024 / 1024, 2), "MB\n")
+  cat("Future deployments will use this cached file!\n")
+}
 
 # 3. Create HTML page with 3D visualization
 port <- as.integer(Sys.getenv("PORT", "8080"))

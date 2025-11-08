@@ -1,0 +1,8 @@
+# Railway configuration for persistent PMTiles caching
+
+[[volumes]]
+# Mount point where PMTiles file will be stored
+mount_path = "/app"
+
+# Volume name
+name = "pmtiles-cache"
