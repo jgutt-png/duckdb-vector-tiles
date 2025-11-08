@@ -117,8 +117,8 @@ map_html <- sprintf('
 </head>
 <body>
   <div id="controls">
-    <button id="btn-population" class="active" onclick="showLayer('population')">Population</button>
-    <button id="btn-income" onclick="showLayer('income')">Income</button>
+    <button id="btn-population" class="active" onclick="showLayer(\\"population\\")">Population</button>
+    <button id="btn-income" onclick="showLayer(\\"income\\")">Income</button>
   </div>
   <div id="map"></div>
   <script>
@@ -213,16 +213,16 @@ map_html <- sprintf('
 
     // Toggle between population and income layers
     function showLayer(layerType) {
-      if (layerType === 'population') {
-        map.setLayoutProperty('population-3d', 'visibility', 'visible');
-        map.setLayoutProperty('income-3d', 'visibility', 'none');
-        document.getElementById('btn-population').classList.add('active');
-        document.getElementById('btn-income').classList.remove('active');
-      } else if (layerType === 'income') {
-        map.setLayoutProperty('population-3d', 'visibility', 'none');
-        map.setLayoutProperty('income-3d', 'visibility', 'visible');
-        document.getElementById('btn-population').classList.remove('active');
-        document.getElementById('btn-income').classList.add('active');
+      if (layerType === "population") {
+        map.setLayoutProperty("population-3d", "visibility", "visible");
+        map.setLayoutProperty("income-3d", "visibility", "none");
+        document.getElementById("btn-population").classList.add("active");
+        document.getElementById("btn-income").classList.remove("active");
+      } else if (layerType === "income") {
+        map.setLayoutProperty("population-3d", "visibility", "none");
+        map.setLayoutProperty("income-3d", "visibility", "visible");
+        document.getElementById("btn-population").classList.remove("active");
+        document.getElementById("btn-income").classList.add("active");
       }
     }
   </script>
