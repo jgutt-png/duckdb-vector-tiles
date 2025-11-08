@@ -288,7 +288,8 @@ map_html <- sprintf('
       // Add hover tooltip
       const popup = new maplibregl.Popup({
         closeButton: false,
-        closeOnClick: false
+        closeOnClick: false,
+        anchor: 'bottom'
       });
 
       map.on("mousemove", "population-3d", (e) => {
