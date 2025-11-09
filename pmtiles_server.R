@@ -664,6 +664,12 @@ map_html <- '
         // Store the pin location for radius changes
         lastPinLocation = e.lngLat;
 
+        // Check if sources exist (they might not if we just switched styles)
+        if (!map.getSource(\'pin-circle\') || !map.getSource(\'pin-3d\')) {
+          console.warn("Pin sources not ready yet, waiting for style to load...");
+          return;
+        }
+
         // Calculate stats for selected radius and get dynamic height
         const radiusHeight = calculateRadiusStats(e.lngLat);
 
@@ -674,6 +680,7 @@ map_html <- '
         const circle = turf.circle(centerPoint, radiusKm, { units: \'kilometers\', steps: 64 });
 
         // Update circle source and show both line and 3D versions
+        console.log("Setting pin circle data...");
         map.getSource(\'pin-circle\').setData(circle);
         map.setLayoutProperty(\'radius-circle-line\', \'visibility\', \'visible\');
 
@@ -686,6 +693,7 @@ map_html <- '
         map.getSource(\'pin-3d\').setData(pin3D);
         map.setPaintProperty(\'pin-3d-marker\', \'fill-extrusion-height\', radiusHeight * 1.5);
         map.setLayoutProperty(\'pin-3d-marker\', \'visibility\', \'visible\');
+        console.log("✓ Pin placed successfully");
       });
     });
 
@@ -708,6 +716,8 @@ map_html <- '
           [\'>=\', [\'get\', \'population\'], 0]
         ]
       });
+
+      console.log("Features found in radius query:", features.length);
 
       // Filter features within circle and aggregate stats
       let totalPopulation = 0;
@@ -1232,6 +1242,117 @@ map_html <- '
             console.log("✓ Roads hidden (3D mode)");
           }
 
+          // Re-add pin visualization sources and layers for pin functionality
+          if (!map.getSource(\'pin-circle\')) {
+            map.addSource(\'pin-circle\', {
+              type: \'geojson\',
+              data: {
+                type: \'Feature\',
+                geometry: {
+                  type: \'Point\',
+                  coordinates: [0, 0]
+                }
+              }
+            });
+          }
+
+          if (!map.getSource(\'pin-3d\')) {
+            map.addSource(\'pin-3d\', {
+              type: \'geojson\',
+              data: {
+                type: \'Feature\',
+                geometry: {
+                  type: \'Point\',
+                  coordinates: [0, 0]
+                }
+              }
+            });
+          }
+
+          // Add radius circle line layer
+          if (!map.getLayer(\'radius-circle-line\')) {
+            map.addLayer({
+              id: \'radius-circle-line\',
+              type: \'line\',
+              source: \'pin-circle\',
+              paint: {
+                \'line-color\': \'#FF3333\',
+                \'line-width\': 5,
+                \'line-opacity\': 1
+              },
+              layout: {
+                \'visibility\': \'none\'
+              }
+            });
+          }
+
+          // Add 3D elevated radius circle
+          if (!map.getLayer(\'radius-circle-3d\')) {
+            map.addLayer({
+              id: \'radius-circle-3d\',
+              type: \'fill-extrusion\',
+              source: \'pin-circle\',
+              paint: {
+                \'fill-extrusion-color\': \'#FF3333\',
+                \'fill-extrusion-height\': 70000,
+                \'fill-extrusion-base\': 0,
+                \'fill-extrusion-opacity\': 0.4,
+                \'fill-extrusion-height-transition\': {
+                  duration: 600,
+                  delay: 0
+                }
+              },
+              layout: {
+                \'visibility\': \'none\'
+              }
+            });
+          }
+
+          // Add 3D pin marker
+          if (!map.getLayer(\'pin-3d-marker\')) {
+            map.addLayer({
+              id: \'pin-3d-marker\',
+              type: \'fill-extrusion\',
+              source: \'pin-3d\',
+              paint: {
+                \'fill-extrusion-color\': \'#FF0000\',
+                \'fill-extrusion-height\': 100000,
+                \'fill-extrusion-base\': 0,
+                \'fill-extrusion-opacity\': 1,
+                \'fill-extrusion-height-transition\': {
+                  duration: 600,
+                  delay: 0
+                }
+              },
+              layout: {
+                \'visibility\': \'none\'
+              }
+            });
+          }
+
+          // Restore pin if one was placed before switching from Buildings
+          if (lastPinLocation) {
+            const radiusHeight = calculateRadiusStats(lastPinLocation);
+            const radiusKm = selectedRadius * 1.60934;
+            const centerPoint = turf.point([lastPinLocation.lng, lastPinLocation.lat]);
+            const circle = turf.circle(centerPoint, radiusKm, { units: \'kilometers\', steps: 64 });
+
+            // Update sources with pin data
+            map.getSource(\'pin-circle\').setData(circle);
+            map.getSource(\'pin-3d\').setData(centerPoint);
+
+            // Update paint properties
+            map.setPaintProperty(\'radius-circle-3d\', \'fill-extrusion-height\', radiusHeight);
+            map.setPaintProperty(\'pin-3d-marker\', \'fill-extrusion-height\', radiusHeight * 1.5);
+
+            // Show pin layers
+            map.setLayoutProperty(\'radius-circle-line\', \'visibility\', \'visible\');
+            map.setLayoutProperty(\'radius-circle-3d\', \'visibility\', \'visible\');
+            map.setLayoutProperty(\'pin-3d-marker\', \'visibility\', \'visible\');
+
+            console.log("✓ Pin restored");
+          }
+
           // Re-setup hover handlers
           setupHoverHandlers();
 
@@ -1387,14 +1508,13 @@ map_html <- '
         // Switch to OpenFreeMap liberty style (includes 3D buildings, POIs, parks, water)
         censusStyleActive = false;
         map.setStyle(BUILDINGS_STYLE);
+        console.log("Buildings style set, waiting for idle event...");
 
-        // Add enhancement layers after style loads
-        map.once(\'style.load\', () => {
-          // Remove existing flat landcover layers
-          if (map.getLayer(\'landcover_wood\')) map.removeLayer(\'landcover_wood\');
-          if (map.getLayer(\'landcover_grass\')) map.removeLayer(\'landcover_grass\');
+        // Use idle event instead of style.load for reliable loading
+        map.once(\'idle\', () => {
+          console.log("✓ Buildings mode idle - style fully loaded!");
 
-          // Make buildings appear at lower zoom levels
+          // Make buildings appear at lower zoom levels (reduced by 3)
           const buildingLayers = map.getStyle().layers.filter(l =>
             l.id.includes(\'building\') && l.type === \'fill-extrusion\'
           );
@@ -1403,6 +1523,38 @@ map_html <- '
               map.setLayerZoomRange(layer.id, Math.max(0, layer.minzoom - 3), layer.maxzoom || 24);
             }
           });
+
+          // Add census data source for pin functionality
+          map.addSource("population", {
+            type: "vector",
+            url: "pmtiles:///us_population.pmtiles",
+            attribution: "US Census Bureau"
+          });
+          console.log("✓ Census data source added to Buildings mode for pin functionality");
+
+          // Re-add pin visualization sources and layers
+          map.addSource(\'pin-circle\', {
+            type: \'geojson\',
+            data: {
+              type: \'Feature\',
+              geometry: {
+                type: \'Point\',
+                coordinates: [0, 0]
+              }
+            }
+          });
+
+          map.addSource(\'pin-3d\', {
+            type: \'geojson\',
+            data: {
+              type: \'Feature\',
+              geometry: {
+                type: \'Point\',
+                coordinates: [0, 0]
+              }
+            }
+          });
+          console.log("✓ Pin sources added");
 
           // Find insertion point (before symbols/labels)
           const layers = map.getStyle().layers;
@@ -1414,77 +1566,97 @@ map_html <- '
             }
           }
 
-          // Add 3D forest/tree canopy
+          // Add radius circle line layer
           map.addLayer({
-            id: \'forest-3d\',
-            type: \'fill-extrusion\',
-            source: \'openmaptiles\',
-            \'source-layer\': \'landcover\',
-            filter: [\'==\', [\'get\', \'class\'], \'wood\'],
+            id: \'radius-circle-line\',
+            type: \'line\',
+            source: \'pin-circle\',
             paint: {
-              \'fill-extrusion-color\': [
-                \'interpolate\', [\'linear\'], [\'zoom\'],
-                10, \'#2d5016\',
-                14, \'#1b5e20\',
-                18, \'#0d3d0d\'
-              ],
-              \'fill-extrusion-height\': [
-                \'interpolate\', [\'linear\'], [\'zoom\'],
-                10, 0,
-                12, 1000,
-                14, 3000,
-                16, 6000,
-                18, 12000
-              ],
-              \'fill-extrusion-base\': 0,
-              \'fill-extrusion-opacity\': 0.85
+              \'line-color\': \'#FF3333\',
+              \'line-width\': 5,
+              \'line-opacity\': 1
+            },
+            layout: {
+              \'visibility\': \'none\'
             }
-          }, firstSymbolId);
+          });
 
-          // Add 3D grass/park areas
+          // Add 3D elevated radius circle
           map.addLayer({
-            id: \'grass-3d\',
+            id: \'radius-circle-3d\',
             type: \'fill-extrusion\',
-            source: \'openmaptiles\',
-            \'source-layer\': \'landcover\',
-            filter: [\'==\', [\'get\', \'class\'], \'grass\'],
+            source: \'pin-circle\',
             paint: {
-              \'fill-extrusion-color\': [
-                \'interpolate\', [\'linear\'], [\'zoom\'],
-                12, \'#9ccc65\',
-                16, \'#7cb342\',
-                18, \'#689f38\'
-              ],
-              \'fill-extrusion-height\': [
-                \'interpolate\', [\'linear\'], [\'zoom\'],
-                12, 0,
-                14, 500,
-                16, 1500,
-                18, 3000
-              ],
+              \'fill-extrusion-color\': \'#FF3333\',
+              \'fill-extrusion-height\': 70000,
               \'fill-extrusion-base\': 0,
-              \'fill-extrusion-opacity\': 0.7
+              \'fill-extrusion-opacity\': 0.4,
+              \'fill-extrusion-height-transition\': {
+                duration: 600,
+                delay: 0
+              }
+            },
+            layout: {
+              \'visibility\': \'none\'
             }
-          }, firstSymbolId);
+          });
 
-          // Add 3D farmland
+          // Add 3D pin marker
           map.addLayer({
-            id: \'farmland-3d\',
+            id: \'pin-3d-marker\',
             type: \'fill-extrusion\',
-            source: \'openmaptiles\',
-            \'source-layer\': \'landcover\',
-            filter: [\'==\', [\'get\', \'class\'], \'farmland\'],
+            source: \'pin-3d\',
             paint: {
-              \'fill-extrusion-color\': \'#c5e1a5\',
-              \'fill-extrusion-height\': [
-                \'interpolate\', [\'linear\'], [\'zoom\'],
-                14, 0,
-                16, 300,
-                18, 800
-              ],
-              \'fill-extrusion-opacity\': 0.5
+              \'fill-extrusion-color\': \'#FF0000\',
+              \'fill-extrusion-height\': 100000,
+              \'fill-extrusion-base\': 0,
+              \'fill-extrusion-opacity\': 1,
+              \'fill-extrusion-height-transition\': {
+                duration: 600,
+                delay: 0
+              }
+            },
+            layout: {
+              \'visibility\': \'none\'
             }
-          }, firstSymbolId);
+          });
+          console.log("✓ Pin visualization layers added in Buildings mode");
+
+          // Add invisible census layer to force tile loading for pin stats
+          // This layer is completely hidden but ensures census tiles are loaded
+          map.addLayer({
+            id: \'census-data-loader\',
+            type: \'fill\',
+            source: \'population\',
+            \'source-layer\': \'population\',
+            paint: {
+              \'fill-opacity\': 0  // Completely invisible
+            }
+          });
+          console.log("✓ Hidden census layer added for tile loading");
+
+          // Restore pin if one was placed before switching to Buildings mode
+          if (lastPinLocation) {
+            const radiusHeight = calculateRadiusStats(lastPinLocation);
+            const radiusKm = selectedRadius * 1.60934;
+            const centerPoint = turf.point([lastPinLocation.lng, lastPinLocation.lat]);
+            const circle = turf.circle(centerPoint, radiusKm, { units: \'kilometers\', steps: 64 });
+
+            // Update sources with pin data
+            map.getSource(\'pin-circle\').setData(circle);
+            map.getSource(\'pin-3d\').setData(centerPoint);
+
+            // Update paint properties
+            map.setPaintProperty(\'radius-circle-3d\', \'fill-extrusion-height\', radiusHeight);
+            map.setPaintProperty(\'pin-3d-marker\', \'fill-extrusion-height\', radiusHeight * 1.5);
+
+            // Show pin layers
+            map.setLayoutProperty(\'radius-circle-line\', \'visibility\', \'visible\');
+            map.setLayoutProperty(\'radius-circle-3d\', \'visibility\', \'visible\');
+            map.setLayoutProperty(\'pin-3d-marker\', \'visibility\', \'visible\');
+          }
+
+          console.log("✓✓✓ Buildings mode fully loaded with pin support! ✓✓✓");
         });
 
         // Update button states
